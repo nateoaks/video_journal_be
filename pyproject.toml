@@ -1,0 +1,85 @@
+[project]
+name = "video_journal_be"
+version = "0.1.0"
+description = "FastAPI backend"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
+    "fastapi[standard]>=0.136.3",
+    "pydantic-settings>=2.14.1",
+    "sqlalchemy[asyncio]>=2.0.50",
+    "structlog>=26.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+src = ["src", "tests"]
+extend-exclude = ["alembic"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "S", "ASYNC", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.poe.tasks]
+lint = "ruff check src tests"
+typecheck = "mypy src"
+test = "pytest"
+dev = "fastapi dev src/app/main.py"
+migrate = "alembic upgrade head"
+
+[tool.poe.tasks.format]
+sequence = [
+    { cmd = "ruff format src tests" },
+    { cmd = "ruff check --fix src tests" },
+]
+
+[tool.poe.tasks.makemigration]
+cmd = "alembic revision --autogenerate -m ${m}"
+args = [{ name = "m", positional = false, required = true }]
+
+[tool.poe.tasks.check]
+sequence = [
+    { cmd = "ruff format src tests" },
+    { cmd = "ruff check src tests" },
+    { cmd = "mypy src" },
+    { cmd = "pytest" },
+]
+
+[dependency-groups]
+dev = [
+    "aiosqlite>=0.22.1",
+    "httpx>=0.28.1",
+    "mypy>=2.1.0",
+    "poethepoet>=0.46.0",
+    "pre-commit>=4.6.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.17",
+]

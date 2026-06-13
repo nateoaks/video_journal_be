@@ -1,0 +1,11 @@
+services:
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: video_journal_be
+    ports:
+      - "5432:5432"
+    volumes:
+      - .local/pg:/var/lib/postgresql/data
