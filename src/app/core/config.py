@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,18 +15,13 @@ class Settings(BaseSettings):
     service_name: str = "app"
     log_level: str = "INFO"
 
-    db_host: str = "localhost"
-    db_port: int = 5432
-    db_user: str = "postgres"
-    db_password: str = "postgres"  # noqa: S105
-    db_name: str = "app"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/video_journal_be"
+    )
 
-    @property
-    def database_url(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.db_user}:{self.db_password}"
-            f"@{self.db_host}:{self.db_port}/{self.db_name}"
-        )
+    storage_backend: str = "local"
+    media_root: Path = Path("media")
+    output_root: Path = Path("outputs")
 
 
 @lru_cache

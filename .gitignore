@@ -19,3 +19,11 @@ htmlcov/
 # Local
 .env
 .local/
+
+# Bind-mount contents (keep the dirs via .gitkeep)
+/data/*
+/media/*
+/outputs/*
+!/data/.gitkeep
+!/media/.gitkeep
+!/outputs/.gitkeep

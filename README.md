@@ -5,15 +5,42 @@ FastAPI backend built with async SQLAlchemy 2.0, PostgreSQL, and Alembic. Manage
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/)
-- [Docker](https://www.docker.com) (for local Postgres)
-- Python 3.13 (uv will install it if missing)
+- [Docker](https://www.docker.com) (for local Postgres / the full stack)
+- Python 3.14 (uv will install it if missing)
+
+## Repository layout
+
+The backend and frontend live in **two sibling repositories**, checked out next to each
+other:
+
+```
+video_journal/
+├── video_journal_be/   ← this repo (FastAPI)
+└── video_journal_fe/   ← Next.js frontend
+```
+
+The root `docker-compose.yml` lives here in the backend repo and builds the frontend via a
+`../video_journal_fe` build context, so both repos must be cloned as siblings for the full
+stack to come up from a clean checkout.
+
+## Full stack with Docker Compose
+
+```bash
+docker compose up -d          # postgres + backend + frontend
+```
+
+- Frontend: http://localhost:3000 (proxies `/api/*` → backend via Next.js rewrites)
+- Backend:  http://localhost:8000 — `GET /api/health` and `GET /health` return `200 OK`
+
+All ports are bound to `127.0.0.1` only. The backend bind-mounts `./data`, `./media`, and
+`./outputs` into the container. FFmpeg and `ffprobe` are installed in the backend image.
 
 ## Setup
 
 ```bash
 uv sync                       # install dependencies into .venv
 cp .env.example .env          # then fill in values
-docker compose up -d          # start Postgres
+docker compose up -d postgres # start just Postgres for local dev
 uv run poe makemigration m="initial schema"
 uv run poe migrate            # apply migrations
 ```

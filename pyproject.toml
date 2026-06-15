@@ -3,7 +3,7 @@ name = "video_journal_be"
 version = "0.1.0"
 description = "FastAPI backend"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
@@ -22,7 +22,7 @@ packages = ["src/app"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py313"
+target-version = "py314"
 src = ["src", "tests"]
 extend-exclude = ["alembic"]
 
@@ -34,7 +34,7 @@ ignore = ["E501"]
 "tests/*" = ["S101"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]

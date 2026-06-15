@@ -9,6 +9,7 @@ codebase allowed to touch the environment.
 ```python
 # src/app/core/config.py
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,18 +25,13 @@ class Settings(BaseSettings):
     service_name: str = "app"
     log_level: str = "INFO"
 
-    db_host: str = "localhost"
-    db_port: int = 5432
-    db_user: str = "postgres"
-    db_password: str = "postgres"  # noqa: S105
-    db_name: str = "app"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/video_journal_be"
+    )
 
-    @property
-    def database_url(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.db_user}:{self.db_password}"
-            f"@{self.db_host}:{self.db_port}/{self.db_name}"
-        )
+    storage_backend: str = "local"
+    media_root: Path = Path("media")
+    output_root: Path = Path("outputs")
 
 
 @lru_cache
@@ -43,16 +39,23 @@ def get_settings() -> Settings:
     return Settings()
 ```
 
+`DATABASE_URL` is the full async SQLAlchemy connection string (driver included). In Docker
+Compose it points at the `postgres` service host; for local dev it defaults to
+`localhost`. `STORAGE_BACKEND` selects the storage adapter (`local` for now);
+`MEDIA_ROOT` and `OUTPUT_ROOT` are filesystem paths (bind-mounted to `/media` and
+`/outputs` in the container) and are typed as `pathlib.Path`.
+
 ## Rules
 
 - **Never read `os.environ` / `os.getenv` outside `config.py`.** Every other module
   imports `get_settings()` and reads typed attributes.
 - `get_settings()` is `@lru_cache`d — it is a process-wide singleton. Do not instantiate
   `Settings()` directly elsewhere.
-- Field types are enforced by Pydantic. A missing required var or a bad type (e.g.
-  `DB_PORT=abc`) raises a `ValidationError` at startup — this is intentional; fail fast.
-- Env var names are the field names **upper-cased**: `db_host` ← `DB_HOST`. pydantic-settings
-  matches case-insensitively by default.
+- Field types are enforced by Pydantic. A missing required var or a bad type (e.g. a
+  non-`Path` value where one is expected) raises a `ValidationError` at startup — this is
+  intentional; fail fast.
+- Env var names are the field names **upper-cased**: `database_url` ← `DATABASE_URL`.
+  pydantic-settings matches case-insensitively by default.
 - Secrets and connection strings come from the environment only. Never hardcode them and
   never commit `.env` (commit `.env.example` instead).
 
