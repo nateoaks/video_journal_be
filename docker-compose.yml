@@ -6,6 +6,39 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: video_journal_be
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-      - .local/pg:/var/lib/postgresql/data
+      # postgres:18 places data in a subdirectory of /var/lib/postgresql.
+      - .local/pg:/var/lib/postgresql
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/video_journal_be
+      STORAGE_BACKEND: local
+      MEDIA_ROOT: /media
+      OUTPUT_ROOT: /outputs
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data:/data
+      - ./media:/media
+      - ./outputs:/outputs
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../video_journal_fe
+      # Next.js bakes rewrite destinations at build time, so the backend URL
+      # must be supplied as a build arg, not just a runtime env var.
+      args:
+        BACKEND_URL: http://backend:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

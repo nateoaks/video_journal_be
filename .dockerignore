@@ -1,0 +1,19 @@
+.git
+.venv
+.local
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local env + bind-mount contents
+.env
+data/
+media/
+outputs/
