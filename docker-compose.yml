@@ -1,22 +1,10 @@
 services:
-  postgres:
-    image: postgres:18.3
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: video_journal_be
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      # postgres:18 places data in a subdirectory of /var/lib/postgresql.
-      - .local/pg:/var/lib/postgresql
-    restart: unless-stopped
-
   backend:
     build:
       context: .
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/video_journal_be
+      # SQLite lives on the bind-mounted /data volume; four slashes = absolute path.
+      DATABASE_URL: sqlite+aiosqlite:////data/journal.db
       STORAGE_BACKEND: local
       MEDIA_ROOT: /media
       OUTPUT_ROOT: /outputs
@@ -26,8 +14,6 @@ services:
       - ./data:/data
       - ./media:/media
       - ./outputs:/outputs
-    depends_on:
-      - postgres
     restart: unless-stopped
 
   frontend:

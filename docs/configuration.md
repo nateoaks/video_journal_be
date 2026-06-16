@@ -25,9 +25,8 @@ class Settings(BaseSettings):
     service_name: str = "app"
     log_level: str = "INFO"
 
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/video_journal_be"
-    )
+    database_url: str = "sqlite+aiosqlite:///./data/journal.db"
+    sqlite_busy_timeout_ms: int = 5000
 
     storage_backend: str = "local"
     media_root: Path = Path("media")
@@ -39,9 +38,12 @@ def get_settings() -> Settings:
     return Settings()
 ```
 
-`DATABASE_URL` is the full async SQLAlchemy connection string (driver included). In Docker
-Compose it points at the `postgres` service host; for local dev it defaults to
-`localhost`. `STORAGE_BACKEND` selects the storage adapter (`local` for now);
+`DATABASE_URL` is the full async SQLAlchemy connection string (driver included). It
+defaults to a SQLite database at `./data/journal.db`; in Docker Compose it points at the
+bind-mounted `/data` volume (`sqlite+aiosqlite:////data/journal.db`). The connection runs
+in WAL mode with a `SQLITE_BUSY_TIMEOUT_MS` busy timeout and foreign-key enforcement
+enabled per connection (see `src/app/db/session.py`). `STORAGE_BACKEND` selects the
+storage adapter (`local` for now);
 `MEDIA_ROOT` and `OUTPUT_ROOT` are filesystem paths (bind-mounted to `/media` and
 `/outputs` in the container) and are typed as `pathlib.Path`.
 

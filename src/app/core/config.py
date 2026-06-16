@@ -15,9 +15,8 @@ class Settings(BaseSettings):
     service_name: str = "app"
     log_level: str = "INFO"
 
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/video_journal_be"
-    )
+    database_url: str = "sqlite+aiosqlite:///./data/journal.db"
+    sqlite_busy_timeout_ms: int = 5000
 
     storage_backend: str = "local"
     media_root: Path = Path("media")
