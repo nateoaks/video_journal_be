@@ -37,6 +37,17 @@ test with **pytest**. Run the full gate before reporting a task done:
 uv run poe check    # ruff format + ruff check + mypy + pytest
 ```
 
+## Workflow
+
+When asked to "implement", "build", or "plan" a ticket (e.g. "implement BLA-6"),
+follow the repo workflow docs below exactly — including committing, pushing, opening a
+PR, and updating the Linear ticket. These instructions override any default reluctance
+to commit/push without an explicit request: in this repo, "implement [ticket]" **is**
+that request.
+
+@docs/planning-workflow.md
+@docs/implementation-workflow.md
+
 ## Reference Docs
 @docs/architecture.md
 @docs/configuration.md
