@@ -7,6 +7,14 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.session import get_session
+
+# Import every domain's models so Base.metadata is complete before create_all;
+# cross-domain foreign keys (e.g. compilations -> soundtracks) need every table
+# registered, not just the ones a given test imports directly.
+from app.domains.clips import models as _clips_models  # noqa: F401
+from app.domains.compilations import models as _compilations_models  # noqa: F401
+from app.domains.items import models as _items_models  # noqa: F401
+from app.domains.soundtracks import models as _soundtracks_models  # noqa: F401
 from app.main import create_app
 
 
