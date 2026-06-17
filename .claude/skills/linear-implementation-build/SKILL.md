@@ -1,6 +1,6 @@
 ---
 name: linear-implementation-build
-description: Implements a Linear ticket's approved implementation plan end to end — creates a branch, writes the code and tests following the plan, runs the project's check/lint/test gate, shows the diff for approval, commits, and (after explicit go-ahead) pushes and opens a PR, then moves the ticket to In Review. Use this skill whenever the user says "implement TICKET-ID", "build TICKET-ID", "ship TICKET-ID", or otherwise asks to turn an already-planned Linear ticket into actual code and a PR — even if they don't use the exact word "implement." Always use this skill for this workflow rather than improvising branch names, commit formats, or PR structure ad hoc, since it encodes the required conventions and approval checkpoints.
+description: Implements a Linear ticket's approved implementation plan end to end — creates a branch, writes the code and tests following the plan, runs the project's check/lint/test gate, shows the diff for approval, then (once approved) commits, pushes, opens a PR, and moves the ticket to In Review with no separate push/PR approval gate. Use this skill whenever the user says "implement TICKET-ID", "build TICKET-ID", "ship TICKET-ID", or otherwise asks to turn an already-planned Linear ticket into actual code and a PR — even if they don't use the exact word "implement." Always use this skill for this workflow rather than improvising branch names, commit formats, or PR structure ad hoc, since it encodes the required conventions and approval checkpoints.
 ---
 
 # Linear Implementation Build
@@ -39,7 +39,9 @@ Follow the plan step by step:
 
 ## Step 2.5: Automated review before the human sees it
 
-Once the check gate passes, run `test-runner-qa` against the diff for structured failure/coverage reporting (the check gate's pass/fail alone doesn't tell you whether acceptance criteria are actually covered), run `code-reviewer` against the diff, run `security-reviewer` if the diff touches any of: new endpoints/handlers, auth logic, user or external input, secrets/credentials, file or network I/O, or dependency changes, and run `performance-reviewer` if the diff touches any of: database/ORM queries, loops over collections, caching logic, or documented hot-path code (security-reviewer and performance-reviewer will each confirm whether they apply).
+**If you are running as the `implementer` agent** (see `.claude/agents/implementer.md`): stop after the check gate passes in Step 2. Do not perform this step yourself — the dispatching session (the orchestrator, or the user directly) calls `test-runner`, `code-reviewer`, `security-reviewer`, and `performance-reviewer` as separate agent dispatches and brings findings back to you to fix. This split exists because an agent invoked via Claude Code's Task/Agent tool cannot reliably spawn further nested subagents in the current design, so the calling-out has to happen one level up. Skip directly to this step's resolution rules below only once you've received findings back.
+
+**If you are running this skill directly** (no agent layer — invoked via `/build` in a plain Claude Code session, or in claude.ai): perform this step yourself as originally designed. Once the check gate passes, run `test-runner-qa` against the diff for structured failure/coverage reporting (the check gate's pass/fail alone doesn't tell you whether acceptance criteria are actually covered), run `code-reviewer` against the diff, run `security-reviewer` if the diff touches any of: new endpoints/handlers, auth logic, user or external input, secrets/credentials, file or network I/O, or dependency changes, and run `performance-reviewer` if the diff touches any of: database/ORM queries, loops over collections, caching logic, or documented hot-path code (security-reviewer and performance-reviewer will each confirm whether they apply).
 
 Resolve findings before proceeding:
 - All **Blocking** (code-reviewer), **Critical**/**High** (security-reviewer), **Critical** (performance-reviewer), and failures/acceptance-criteria coverage gaps (test-runner-qa) must be fixed — re-edit and re-run the check gate after each fix.
@@ -59,9 +61,7 @@ Once the diff is approved:
 
 ## Step 4: Push and create the PR
 
-**Checkpoint — explicit go-ahead required.** Pushing a branch and opening a PR are real, visible, hard-to-undo actions. Before doing either, ask the user directly (e.g. "Ready to push the branch and open the PR?") and wait for a clear yes. Do not push or create the PR on the strength of the earlier diff approval alone — that approval was for the code, not for publishing it.
-
-Once confirmed:
+Once the diff is approved and committed, push the branch and open the PR — no separate go-ahead is required for this step. The diff approval in Step 2.5's checkpoint is the human checkpoint for this whole stage; push and PR creation follow automatically once that's given.
 
 1. Push the branch.
 2. Create the PR with the `gh` CLI. Pull `<2-3 sentence summary from the plan>` from the plan's "Goal" (and "Approach" if needed for context), and `<bullet list of files changed and why>` from the plan's "Files and components affected" section — adjusted to reflect what was actually changed, since the implementation may have diverged slightly from the original plan:
@@ -98,5 +98,5 @@ Set the Linear ticket's status to **In Review** via `Linear:save_issue` (`state:
 - Do not proceed to the human diff checkpoint with unresolved Blocking (code-reviewer), Critical/High (security-reviewer), Critical (performance-reviewer), or failure/acceptance-criteria-coverage findings (test-runner-qa) — the check gate passing is not a substitute for these reviews.
 - Do not push directly to main.
 - Do not create the PR until the check gate passes.
-- Do not push the branch or open the PR without the explicit go-ahead described in Step 4, even if the diff was already approved.
+- Do not skip the Step 2.5 diff-approval checkpoint — that approval is what authorizes commit, push, and PR creation; push/PR no longer have a separate gate of their own, so the diff checkpoint is the one place this stage stops for the human.
 - Do not silently improvise an implementation plan if one isn't on the ticket — stop and say so instead.
