@@ -51,25 +51,47 @@ uv run poe check    # ruff format + ruff check + mypy + pytest
 
 # Engineering Team Pipeline
 
-This repo uses a set of Claude Code skills that together form an autonomous engineering pipeline, from a raw ticket to an opened PR. This file is the map — read it before assuming how something should be invoked.
+This repo uses a set of Claude Code skills and agents that together form an autonomous engineering pipeline, from a raw ticket to an opened PR. This file is the map — read it before assuming how something should be invoked.
+
+## Skills vs. agents
+
+**Skills** (`.claude/skills/`) are the "how" — each stage's procedure, checklists, severity tiers, scope boundaries. **Agents** (`.claude/agents/`) are the "who and on what model" — each agent is a thin wrapper naming a model and tool allowlist, then says "follow skill X exactly." This split means the skills themselves never needed to change when agents were introduced; only the dispatch mechanism did.
+
+| Agent | Model | Tools | Skill it follows |
+|---|---|---|---|
+| `architect` | Opus | Read-only (+ WebSearch) | `architect` |
+| `requirements-analyst` | Opus | Read-only | `requirements-analyst` |
+| `planner` | Opus | Read-only | `linear-implementation-plan` |
+| `implementer` | Sonnet | Read, Write, Edit, Bash | `linear-implementation-build` (Steps 1–2, then stops for the review chain, then Steps 3–5) |
+| `code-reviewer` | Sonnet | Read-only | `code-reviewer` |
+| `security-reviewer` | Opus | Read-only | `security-reviewer` |
+| `performance-reviewer` | Sonnet | Read-only (+ Bash for benchmarks) | `performance-reviewer` |
+| `test-runner` | Haiku | Read-only (+ Bash to run tests) | `test-runner-qa` |
+| `documentation` | Haiku | Read, Write, Edit | `documentation` |
+| `dependency-upgrade` | Sonnet | Read, Write, Edit, Bash | `dependency-upgrade` |
+| `release-prep` | Sonnet | Read, Write, Edit, Bash | `release-prep` |
+
+Reviewer agents (architect, requirements-analyst, planner, code-reviewer, security-reviewer, performance-reviewer, test-runner) are hard-restricted to read-only tools — no Write/Edit. This is a structural guarantee, not just an instruction: they cannot silently apply a fix even if they see exactly what's wrong. They report findings; `implementer` (or the dispatching session) applies them.
 
 ## Pipeline order
 
 ```
-requirements-analyst → architect (conditional) → linear-implementation-plan → linear-implementation-build
+requirements-analyst (agent) → architect (agent, conditional) → planner (agent) → implementer (agent)
                                                                                        │
                                                             ┌──────────────────────────┼──────────────────────────┐
                                                             ▼                          ▼                          ▼
-                                                    test-runner-qa            code-reviewer            security-reviewer (conditional)
-                                                                                                          performance-reviewer (conditional)
+                                                      test-runner              code-reviewer            security-reviewer (conditional)
+                                                      (agent)                   (agent)                  performance-reviewer (agent, conditional)
                                                                                                                     │
                                                                                                                     ▼
-                                                                                                            documentation
+                                                                                                          documentation (agent)
 ```
 
+**Important difference from the pre-agent design:** when build was a single skill, it called the four review skills internally. As separate agents, `implementer` cannot spawn its own nested subagents, so the **dispatching session** (the orchestrator, or you directly) now owns calling each review agent and feeding findings back to `implementer` for fixes. See `eng-team-orchestrator`'s Step 4 for the exact sequencing.
+
 Independent of the above (separate entry points, not part of a single ticket's flow):
-- `dependency-upgrade` — scheduled/on-demand maintenance
-- `release-prep` — cutting a release (versioning, CHANGELOG, tag — no deploy)
+- `dependency-upgrade` (agent) — scheduled/on-demand maintenance
+- `release-prep` (agent) — cutting a release (versioning, CHANGELOG, tag — no deploy)
 
 ## How to run it
 
@@ -106,7 +128,7 @@ Every "approval" in this pipeline is a real stop, not a formality:
 - `requirements-analyst` — asks clarifying questions before drafting; asks for approval before writing back to the ticket.
 - `architect` — same pattern, plus its decisions are expensive to reverse, so its clarifying step pushes harder on real tradeoffs.
 - `linear-implementation-plan` — same pattern; checks against an architecture doc's constraints if one exists.
-- `linear-implementation-build` — runs a check gate (lint/typecheck/test), then test-runner-qa/code-reviewer/security-reviewer/performance-reviewer/documentation, then **shows the full diff for explicit approval before committing anything**, then a second approval before push/PR.
+- `linear-implementation-build` — runs a check gate (lint/typecheck/test), then test-runner-qa/code-reviewer/security-reviewer/performance-reviewer/documentation, then **shows the full diff for explicit approval before committing anything**. That single approval covers everything after it — commit, push, and PR creation happen automatically once given; there's no separate push/PR gate.
 - `release-prep` — **no autonomous path at all**; always asks before tagging or writing the CHANGELOG.
 - `dependency-upgrade` — the one skill designed for *less* oversight: patch/minor bumps auto-PR without a pre-push approval (still gated on the check gate passing); major bumps need sign-off; CVE patches proceed regardless of bump size, with the breaking-change risk surfaced explicitly rather than hidden.
 
@@ -114,6 +136,7 @@ If you're ever unsure whether something just happened autonomously or is waiting
 
 ## Known limitations
 
+- **Subagent MCP tool access is unverified in your environment.** Public reports conflict on whether custom subagents reliably get MCP tool passthrough (for Linear/Jira reads and writes) — it may depend on Claude Code version and whether the agent is project-based vs. plugin-based. Every agent that needs tracker access is written to attempt the call and, if it fails or the tool isn't present, report that plainly and hand back the content for the dispatching session to write instead — rather than silently failing or guessing. Watch for this on your first real run; if it's consistently unavailable, the fix is to have the orchestrator (or you) perform all tracker writes directly rather than relying on agent-level MCP access.
 - **Linear ticket fetching**: the primary path is `Linear:get_issue`. If that tool isn't loaded in a given session, skills fall back to `Linear:list_issues` with a query — but that fallback **truncates long descriptions** and points to a `get_issue` tool that, in the fallback case, isn't available. If a ticket's description looks cut off, the skill will say so and ask rather than proceeding on a partial spec. Don't assume a truncated-looking description in a transcript means the ticket itself is incomplete — check before concluding that.
 - **No deploy step anywhere in this pipeline.** `release-prep` stops at a tagged, documented release. If your team needs an actual deploy trigger, that's not built yet — say so explicitly rather than assuming `/release` does it.
 - **No orchestrator memory across sessions.** If a pipeline run is interrupted (you close the session mid-build, say), re-running `/pipeline <ticket>` re-checks ticket state from scratch (status, existing `## Requirements`/`## Implementation Plan` sections) rather than resuming from an internal checkpoint — which is generally safe since each stage already detects and asks about existing partial work, but worth knowing if a run seems to "redo" something.
