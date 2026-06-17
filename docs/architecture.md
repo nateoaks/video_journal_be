@@ -45,6 +45,12 @@ src/app/
 │   ├── repository.py           ← BaseRepository[ModelT] generic data-access base
 │   └── exceptions.py           ← AppError, NotFoundError, ConflictError
 │
+├── storage/
+│   ├── base.py                 ← StorageBackend ABC (save/open/delete/exists/path_or_url)
+│   ├── local.py                ← LocalStorage — maps keys to media_root on disk
+│   ├── __init__.py             ← get_storage() factory (lru_cache'd singleton)
+│   └── dependencies.py         ← StorageDep for FastAPI DI
+│
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/
 │   │   ├── router.py
@@ -103,3 +109,4 @@ each other's internals. If two domains need the same logic, lift it into `app/co
 | Read `os.environ` anywhere | Use `Settings` (see `docs/configuration.md`) |
 | `print()` for diagnostics | Use the structlog logger (see `docs/logging.md`) |
 | Construct a service with `ItemService(...)` in an endpoint | Inject it via `dependencies.py` |
+| Use `open()`, `os.path`, or `shutil` for media files | Use `StorageDep` (see `app/storage/`) |

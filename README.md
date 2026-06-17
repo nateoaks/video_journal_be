@@ -79,6 +79,7 @@ src/app/
 ├── core/       — Settings, logging, lifespan, middleware, exception handlers
 ├── db/         — SQLAlchemy Base, async engine + session
 ├── common/     — Shared base repository and error types
+├── storage/    — StorageBackend abstraction + LocalStorage; inject via StorageDep
 ├── domains/    — Feature modules (models, schemas, repository, service, router)
 └── api/        — Aggregated versioned router (/api/v1) + shared deps
 ```
