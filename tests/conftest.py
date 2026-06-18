@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -16,10 +17,18 @@ from app.domains.compilations import models as _compilations_models  # noqa: F40
 from app.domains.items import models as _items_models  # noqa: F401
 from app.domains.soundtracks import models as _soundtracks_models  # noqa: F401
 from app.main import create_app
+from app.storage import get_storage
+from app.storage.local import LocalStorage
 
 
 @pytest.fixture
-async def client() -> AsyncGenerator[AsyncClient]:
+def storage(tmp_path: Path) -> LocalStorage:
+    """Isolated LocalStorage instance backed by a temp directory."""
+    return LocalStorage(tmp_path / "media")
+
+
+@pytest.fixture
+async def client(storage: LocalStorage) -> AsyncGenerator[AsyncClient]:
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -39,8 +48,12 @@ async def client() -> AsyncGenerator[AsyncClient]:
                 await session.rollback()
                 raise
 
+    def override_get_storage() -> LocalStorage:
+        return storage
+
     app = create_app()
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_storage] = override_get_storage
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http_client:
