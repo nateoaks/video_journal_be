@@ -1,3 +1,5 @@
+"""SQLAlchemy ORM models for the soundtracks domain."""
+
 import uuid
 from datetime import datetime
 
@@ -14,4 +16,4 @@ class Soundtrack(Base):
     key: Mapped[str]
     title: Mapped[str]
     duration_s: Mapped[float | None] = mapped_column(default=None)
-    uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)

@@ -52,19 +52,27 @@ src/app/
 │   └── dependencies.py         ← StorageDep for FastAPI DI
 │
 ├── media/
-│   └── ffprobe.py              ← async ffprobe wrapper for video metadata
+│   └── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
 │
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/
 │   │   ├── router.py
 │   │   └── schemas.py
-│   └── items/                  ← reference domain (full stack)
+│   ├── items/                  ← reference domain (full stack)
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   └── router.py
+│   └── soundtracks/            ← audio upload and streaming
 │       ├── models.py
 │       ├── schemas.py
 │       ├── repository.py
 │       ├── service.py
 │       ├── dependencies.py
-│       └── router.py
+│       ├── router.py
+│       └── utils.py
 │
 └── api/
     ├── deps.py                 ← shared FastAPI dependencies (e.g. SessionDep)
