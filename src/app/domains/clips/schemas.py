@@ -23,6 +23,7 @@ class ClipRead(BaseModel):
     trim_out_s: float | None
     sort_index: float
     status: ClipStatus
+    error_message: str | None
 
 
 class ClipUpdate(BaseModel):
