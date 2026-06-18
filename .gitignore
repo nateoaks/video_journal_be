@@ -27,3 +27,6 @@ htmlcov/
 !/data/.gitkeep
 !/media/.gitkeep
 !/outputs/.gitkeep
+
+# Claude worktrees
+.claude/worktrees

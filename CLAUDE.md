@@ -144,3 +144,7 @@ If you're ever unsure whether something just happened autonomously or is waiting
 ## Adding a new skill
 
 New skills go in `.claude/skills/<name>/SKILL.md` (project-scoped, ships with the repo) and should be added to the diagram above if they sit in the main pipeline, or to "independent entry points" if they don't. If it's meant to be reachable via slash command, add a one-line command file to `.claude/commands/`.
+
+## Git worktree usage
+When operating on a different worktree, use `git -C <worktree-path> <command>`
+instead of `cd <worktree-path> && git <command>`.
