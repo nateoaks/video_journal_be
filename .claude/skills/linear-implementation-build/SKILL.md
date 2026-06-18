@@ -50,18 +50,16 @@ Resolve findings before proceeding:
 
 If a finding reveals the ticket actually needed a system-level decision (missing architecture doc, the diff conflicts with one that exists, or a performance finding traces back to an architectural scaling limit rather than something fixable in this diff), stop and tell the user rather than resolving it yourself — point to `architect`.
 
-**Checkpoint — show the diff before committing.** Once the check gate passes and review findings are resolved, show the user the full diff (or a clear summary of every file changed), including a short summary of what test-runner-qa, code-reviewer, security-reviewer, and performance-reviewer found and how it was addressed. Wait for their go-ahead or feedback. Incorporate any requested changes and re-run the check gate (and re-review anything materially changed) before proceeding.
-
 ## Step 3: Commit
 
-Once the diff is approved:
+Once review findings are resolved:
 
 - Stage all changes.
 - Commit with: `<type>(<TEAM>-<id>): <ticket title>` — where `<type>` matches the branch prefix (`feat`, `fix`, or `chore`).
 
 ## Step 4: Push and create the PR
 
-Once the diff is approved and committed, push the branch and open the PR — no separate go-ahead is required for this step. The diff approval in Step 2.5's checkpoint is the human checkpoint for this whole stage; push and PR creation follow automatically once that's given.
+Once committed, push the branch and open the PR immediately — no separate go-ahead required.
 
 1. Push the branch.
 2. Create the PR with the `gh` CLI. Pull `<2-3 sentence summary from the plan>` from the plan's "Goal" (and "Approach" if needed for context), and `<bullet list of files changed and why>` from the plan's "Files and components affected" section — adjusted to reflect what was actually changed, since the implementation may have diverged slightly from the original plan:
@@ -98,5 +96,5 @@ Set the Linear ticket's status to **In Review** via `Linear:save_issue` (`state:
 - Do not proceed to the human diff checkpoint with unresolved Blocking (code-reviewer), Critical/High (security-reviewer), Critical (performance-reviewer), or failure/acceptance-criteria-coverage findings (test-runner-qa) — the check gate passing is not a substitute for these reviews.
 - Do not push directly to main.
 - Do not create the PR until the check gate passes.
-- Do not skip the Step 2.5 diff-approval checkpoint — that approval is what authorizes commit, push, and PR creation; push/PR no longer have a separate gate of their own, so the diff checkpoint is the one place this stage stops for the human.
+- Do not add any human approval checkpoint between passing reviews and committing — once reviews are resolved the commit, push, and PR happen automatically.
 - Do not silently improvise an implementation plan if one isn't on the ticket — stop and say so instead.

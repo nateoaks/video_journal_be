@@ -27,9 +27,9 @@ Activate when the user says "run [ticket ID] through the pipeline," "take [ticke
 
 ## The no-pause rule
 
-Per design, this orchestrator does not stop between stages to ask "continue?" — each agent already has the right checkpoints baked into the skill it follows (clarifying questions before drafting, human approval before write-back, diff approval before commit), and re-asking on top of those would just be redundant friction. The orchestrator's job is to dispatch each agent, carry its output into the next, and only surface to the user when an agent's own checkpoint already would.
+Per design, this orchestrator does not stop between stages to ask "continue?" — each agent already has the right checkpoints baked into the skill it follows (clarifying questions before drafting, human approval before write-back), and re-asking on top of those would just be redundant friction. The orchestrator's job is to dispatch each agent, carry its output into the next, and only surface to the user when an agent's own checkpoint already would.
 
-This means: if every agent's internal checkpoints are satisfied (the user answers clarifying questions, approves drafts, approves diffs — whatever each one already asks for), the orchestrator proceeds through the full chain in one continuous flow without an extra "ready for the next stage?" gate in between.
+This means: if every agent's internal checkpoints are satisfied (the user answers clarifying questions, approves drafts — whatever each one already asks for), the orchestrator proceeds through the full chain in one continuous flow without an extra "ready for the next stage?" gate in between.
 
 ## Step 1: Requirements
 
@@ -67,7 +67,7 @@ Collect findings from all that ran. Resolve before proceeding, per each skill's 
 
 Once findings are resolved, dispatch the `documentation` agent against the same diff.
 
-Then return to `implementer` for its remaining steps: the diff-approval checkpoint, then — once approved — commit, push, and PR creation automatically, no separate gate for those. The diff-approval checkpoint is the one place this stage stops for the human; it is not skipped or weakened by being run through the orchestrator — show the user the actual diff and the consolidated review summary, and wait for explicit go-ahead before anything is committed. Everything from commit through the open PR follows from that single approval.
+Then return to `implementer` for its remaining steps: commit, push, and PR creation automatically — no human approval gate. Once review findings are resolved, the implementer proceeds directly to commit and PR without stopping.
 
 ## Step 5: Summary
 
@@ -85,6 +85,6 @@ Stop the whole run (don't proceed to the next stage) if:
 
 - Do not add a "ready to proceed?" checkpoint between stages beyond what each agent already asks for — that defeats the point of running this as one continuous flow.
 - Do not dispatch `dependency-upgrade` or `release-prep` as part of this flow.
-- Do not skip an agent's internal checkpoint (clarifying questions, draft approval, diff approval) just because the orchestrator is running unattended — those checkpoints still require the user's actual input; the orchestrator doesn't have authority to approve on the user's behalf.
+- Do not skip an agent's internal checkpoint (clarifying questions, draft approval) just because the orchestrator is running unattended — those checkpoints still require the user's actual input; the orchestrator doesn't have authority to approve on the user's behalf.
 - Do not silently decide a ticket needs `architect` without surfacing the reasoning, and do not silently skip it without saying so either — both are visible, one-line notes to the user, not a silent fork.
 - Do not run a stage yourself in the main session instead of dispatching to its agent, even if dispatch seems slower — the model tiering and context isolation are the point of this design.
