@@ -18,3 +18,13 @@ class NotFoundError(AppError):
 class ConflictError(AppError):
     status_code = 409
     message = "Conflict"
+
+
+class UnsupportedMediaTypeError(AppError):
+    status_code = 415
+    message = "Unsupported media type"
+
+
+class UploadTooLargeError(AppError):
+    status_code = 413
+    message = "Upload exceeds maximum allowed size"

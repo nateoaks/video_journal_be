@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     storage_backend: str = "local"
     media_root: Path = Path("media")
     output_root: Path = Path("outputs")
+    max_upload_bytes: int = 500 * 1024 * 1024  # 500 MiB
 
 
 @lru_cache

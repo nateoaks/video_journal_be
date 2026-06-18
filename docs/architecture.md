@@ -51,6 +51,9 @@ src/app/
 │   ├── __init__.py             ← get_storage() factory (lru_cache'd singleton)
 │   └── dependencies.py         ← StorageDep for FastAPI DI
 │
+├── media/
+│   └── ffprobe.py              ← async ffprobe wrapper for video metadata
+│
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/
 │   │   ├── router.py
