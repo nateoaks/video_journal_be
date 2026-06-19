@@ -55,6 +55,16 @@ Once approved and written back (ticket moved to Todo), continue.
 
 ## Step 4: Build and review chain
 
+Before dispatching the implementer, create an isolated git worktree so that any WIP files in the main working tree don't bleed into the check gate:
+
+```bash
+# Derive branch name from the Linear ticket's gitBranchName field, or construct it:
+#   feat/BLA-<id>-<slug>  /  fix/BLA-<id>-<slug>  /  chore/BLA-<id>-<slug>
+git worktree add .claude/worktrees/<ticket-id> -b <branch-name>
+```
+
+All subsequent implementer work (edits, `poe check`, commit) happens inside `.claude/worktrees/<ticket-id>/`. Pass the worktree path to the implementer so it knows where to operate.
+
 Dispatch the `implementer` agent. It fetches the plan, writes the code, and runs the check gate, then stops (per its own agent definition — it does not call the other review agents itself).
 
 Once the check gate passes, dispatch in turn:

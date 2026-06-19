@@ -70,6 +70,7 @@ This repo uses a set of Claude Code skills and agents that together form an auto
 | `documentation` | Haiku | Read, Write, Edit | `documentation` |
 | `dependency-upgrade` | Sonnet | Read, Write, Edit, Bash | `dependency-upgrade` |
 | `release-prep` | Sonnet | Read, Write, Edit, Bash | `release-prep` |
+| `merge` | Sonnet | Bash, Read | `merge` |
 
 Reviewer agents (architect, requirements-analyst, planner, code-reviewer, security-reviewer, performance-reviewer, test-runner) are hard-restricted to read-only tools — no Write/Edit. This is a structural guarantee, not just an instruction: they cannot silently apply a fix even if they see exactly what's wrong. They report findings; `implementer` (or the dispatching session) applies them.
 
@@ -92,6 +93,7 @@ requirements-analyst (agent) → architect (agent, conditional) → planner (age
 Independent of the above (separate entry points, not part of a single ticket's flow):
 - `dependency-upgrade` (agent) — scheduled/on-demand maintenance
 - `release-prep` (agent) — cutting a release (versioning, CHANGELOG, tag — no deploy)
+- `merge` (agent) — merge an approved PR, move the ticket to Done, remove the worktree
 
 ## How to run it
 
@@ -114,6 +116,12 @@ This runs the `eng-team-orchestrator` skill, which chains all four main stages a
 /review
 ```
 Runs code-reviewer + test-runner-qa always, security-reviewer and performance-reviewer conditionally based on what the diff touches.
+
+**After PR approval — merge and clean up:**
+```
+/merge BLA-7
+```
+Squash-merges the approved PR, moves the ticket to Done, and removes the local worktree. Stops and reports if the PR isn't approved or has conflicts.
 
 **Maintenance, run independently:**
 ```
