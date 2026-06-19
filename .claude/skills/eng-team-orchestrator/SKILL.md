@@ -55,12 +55,15 @@ Once approved and written back (ticket moved to Todo), continue.
 
 ## Step 4: Build and review chain
 
+Move the ticket to **In Progress** via `Linear:save_issue` (`state: "In Progress"`) before any implementation work begins. If that MCP call isn't available, report the ticket URL and tell the user to update it manually — then continue; this status update is not a blocker.
+
 Before dispatching the implementer, create an isolated git worktree so that any WIP files in the main working tree don't bleed into the check gate:
 
 ```bash
 # Derive branch name from the Linear ticket's gitBranchName field, or construct it:
 #   feat/BLA-<id>-<slug>  /  fix/BLA-<id>-<slug>  /  chore/BLA-<id>-<slug>
-git worktree add .claude/worktrees/<ticket-id> -b <branch-name>
+git fetch origin main
+git worktree add .claude/worktrees/<ticket-id> -b <branch-name> origin/main
 ```
 
 All subsequent implementer work (edits, `poe check`, commit) happens inside `.claude/worktrees/<ticket-id>/`. Pass the worktree path to the implementer so it knows where to operate.
