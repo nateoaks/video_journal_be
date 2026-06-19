@@ -18,12 +18,14 @@ from app.domains.clips.models import Clip, ClipStatus
 from app.domains.clips.repository import ClipRepository
 from app.domains.clips.schemas import ClipUpdate
 from app.domains.clips.utils import (
+    build_filmstrip_key,
     build_normalized_key,
     build_original_key,
     safe_extension,
 )
 from app.media.ffmpeg import FfmpegError
 from app.media.ffprobe import FfprobeError, probe
+from app.media.filmstrip import generate_filmstrip
 from app.media.normalize import normalize
 from app.storage.base import StorageBackend
 
@@ -167,6 +169,9 @@ class ClipService:
             clip.status = ClipStatus.ready
             await self.repository.add(clip)
 
+            # Generate filmstrip after normalisation; failure is non-fatal.
+            await self._generate_and_store_filmstrip(clip, dst_path)
+
         except FfmpegError as exc:
             clip.status = ClipStatus.failed
             clip.error_message = "Normalization failed"
@@ -197,7 +202,59 @@ class ClipService:
             raise NotFoundError(f"Clip {clip_id} is not ready")
         return Path(self.storage.path_or_url(clip.normalized_key))
 
+    async def open_filmstrip(self, clip_id: UUID) -> Path:
+        """Return the local filesystem path to the filmstrip JPEG.
+
+        Raises NotFoundError if the clip does not exist, is not ready, or has
+        no filmstrip key.
+        """
+        clip = await self.repository.get(clip_id)
+        if clip is None:
+            raise NotFoundError(f"Clip {clip_id} not found")
+        if clip.status != ClipStatus.ready or clip.filmstrip_key is None:
+            raise NotFoundError(f"Clip {clip_id} filmstrip is not available")
+        return Path(self.storage.path_or_url(clip.filmstrip_key))
+
     # --- private helpers ---
+
+    async def _generate_and_store_filmstrip(self, clip: Clip, src_path: str) -> None:
+        """Generate a filmstrip JPEG from *src_path* and persist it to storage.
+
+        Failure is non-fatal: logs the error and leaves ``clip.filmstrip_key``
+        as ``None`` so the clip remains playable without a strip.
+        """
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as _tmp:
+            strip_path = _tmp.name
+
+        try:
+            await generate_filmstrip(src_path, strip_path, duration_s=clip.duration_s)
+
+            filmstrip_key = build_filmstrip_key(clip.id)
+
+            async def _strip_stream() -> AsyncIterator[bytes]:
+                async with await anyio.open_file(strip_path, "rb") as fh:
+                    while True:
+                        chunk = await fh.read(_CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        yield chunk
+
+            await self.storage.save(_strip_stream(), filmstrip_key)
+
+            clip.filmstrip_key = filmstrip_key
+            await self.repository.add(clip)
+
+        except Exception as exc:
+            logger.error(
+                "clip.filmstrip.failed",
+                clip_id=str(clip.id),
+                error=str(exc),
+            )
+
+        finally:
+            await anyio.to_thread.run_sync(
+                lambda: Path(strip_path).unlink(missing_ok=True)
+            )
 
     async def _iter_upload(self, upload: UploadFile) -> AsyncIterator[bytes]:
         """Yield chunks from an UploadFile, 1 MiB at a time.
