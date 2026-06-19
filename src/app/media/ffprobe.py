@@ -1,4 +1,9 @@
-"""ffprobe wrapper for extracting video metadata."""
+"""ffprobe wrapper for extracting video and audio file metadata.
+
+Provides async functions to probe video files (probe) and audio files (probe_audio),
+returning structured metadata about duration, dimensions, codecs, and other properties.
+Runs ffprobe synchronously in a thread pool to avoid blocking the event loop.
+"""
 
 import contextlib
 import json
@@ -28,6 +33,14 @@ class ProbeResult:
     height: int | None
     codec_name: str | None
     recorded_at: datetime | None
+
+
+@dataclass(frozen=True)
+class AudioProbeResult:
+    """Parsed metadata extracted from an audio file via ffprobe."""
+
+    duration_s: float | None
+    title: str | None
 
 
 def _run_ffprobe(path: str) -> bytes:
@@ -173,6 +186,55 @@ def _parse_output(raw: bytes) -> ProbeResult:
     )
 
 
+def _parse_audio_output(raw: bytes) -> AudioProbeResult:
+    """Parse raw ffprobe JSON output into an AudioProbeResult."""
+    try:
+        data: dict[str, object] = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise FfprobeError(f"ffprobe produced invalid JSON: {exc}") from exc
+
+    streams = data.get("streams")
+    if not isinstance(streams, list):
+        raise FfprobeError("ffprobe output missing 'streams' key")
+
+    audio_stream: dict[str, object] | None = None
+    for s in streams:
+        if isinstance(s, dict) and s.get("codec_type") == "audio":
+            audio_stream = s
+            break
+
+    if audio_stream is None:
+        raise FfprobeError("No audio stream found in file")
+
+    fmt = data.get("format")
+    if not isinstance(fmt, dict):
+        fmt = {}
+
+    # Duration from format section.
+    duration_s: float | None = None
+    raw_duration = fmt.get("duration")
+    if raw_duration is not None:
+        with contextlib.suppress(ValueError):
+            duration_s = float(str(raw_duration))
+
+    # Title: format tags first, then first audio stream tags.
+    title: str | None = None
+    fmt_tags = fmt.get("tags")
+    if isinstance(fmt_tags, dict):
+        raw_title = fmt_tags.get("title")
+        if raw_title is not None:
+            title = str(raw_title)
+
+    if title is None:
+        stream_tags = audio_stream.get("tags")
+        if isinstance(stream_tags, dict):
+            raw_title = stream_tags.get("title")
+            if raw_title is not None:
+                title = str(raw_title)
+
+    return AudioProbeResult(duration_s=duration_s, title=title)
+
+
 async def probe(path: str | Path) -> ProbeResult:
     """Probe a video file and return extracted metadata.
 
@@ -182,3 +244,14 @@ async def probe(path: str | Path) -> ProbeResult:
     path_str = str(path)
     raw = await anyio.to_thread.run_sync(lambda: _run_ffprobe(path_str))
     return _parse_output(raw)
+
+
+async def probe_audio(path: str | Path) -> AudioProbeResult:
+    """Probe an audio file and return extracted metadata.
+
+    Runs ffprobe in a thread to avoid blocking the event loop.
+    Raises FfprobeError on any failure or if no audio stream is found.
+    """
+    path_str = str(path)
+    raw = await anyio.to_thread.run_sync(lambda: _run_ffprobe(path_str))
+    return _parse_audio_output(raw)
