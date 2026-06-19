@@ -23,7 +23,7 @@ from app.domains.compilations.progress import push_from_thread as _push
 from app.domains.compilations.progress import register as _register
 from app.domains.compilations.repository import CompilationRepository
 from app.domains.compilations.schemas import CompilationCreate
-from app.domains.compilations.utils import build_output_key
+from app.domains.compilations.utils import build_output_key, truncate_stderr
 from app.media.compile import ClipSpec, compile_video
 from app.media.ffmpeg import FfmpegError
 from app.storage.base import StorageBackend
@@ -108,9 +108,10 @@ class CompilationService:
         """Render the compilation in the background.
 
         Designed to run inside a background task with its own session.
-        On FfmpegError the compilation is marked failed; the exception is NOT
-        re-raised so the background task exits cleanly.  The temp file is
-        always removed.
+        On FfmpegError the compilation is marked failed with the FFmpeg stderr
+        tail (truncated to 2000 characters for safety) and finalized; the
+        exception is NOT re-raised so the background task exits cleanly.
+        The temp file is always removed in the finally block.
         """
         compilation = await self.repository.get_with_clips(compilation_id)
         if compilation is None:
@@ -182,17 +183,16 @@ class CompilationService:
             )
 
         except FfmpegError as exc:
+            stderr_tail = truncate_stderr(exc.message)
             _finalize(
                 compilation_id,
-                ProgressUpdate(
-                    progress=0, status="failed", error="Compilation render failed"
-                ),
+                ProgressUpdate(progress=0, status="failed", error=stderr_tail),
             )
             await self.repository.session.rollback()
             compilation = await self.repository.get(compilation_id)
             if compilation is not None:
                 compilation.status = CompilationStatus.failed
-                compilation.error = "Compilation render failed"
+                compilation.error = stderr_tail
                 compilation.completed_at = datetime.now(UTC)
                 await self.repository.add(compilation)
                 await self.repository.session.commit()

@@ -212,6 +212,25 @@ async def test_create_compilation_409_when_running(
     assert resp.status_code == 409
 
 
+async def test_create_compilation_409_when_running_body(
+    test_env: dict[str, Any],
+) -> None:
+    """POST 409 body contains the expected detail message when already running."""
+    client: AsyncClient = test_env["client"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    async with factory() as session:
+        running = Compilation(status=CompilationStatus.running)
+        session.add(running)
+        await session.commit()
+
+    resp = await client.post(
+        "/api/v1/compilations", json={"soundtrack_id": str(uuid4())}
+    )
+    assert resp.status_code == 409
+    assert resp.json() == {"detail": "A compilation is already running"}
+
+
 async def test_create_compilation_409_no_ready_clips(
     test_env: dict[str, Any],
 ) -> None:
@@ -313,6 +332,10 @@ async def test_get_compilation_video_range(
         headers={"Range": "bytes=0-9"},
     )
     assert resp.status_code == 206
+    assert resp.headers.get("accept-ranges") == "bytes"
+    content_range = resp.headers.get("content-range", "")
+    # Content-Range format: bytes <start>-<end>/<total>
+    assert content_range.startswith("bytes 0-9/")
 
 
 async def test_get_compilation_video_not_complete_returns_404(
@@ -412,7 +435,8 @@ async def test_render_failure_marks_compilation_failed(
         result = await session.get(Compilation, compilation_id)
         assert result is not None
         assert result.status == CompilationStatus.failed
-        assert result.error == "Compilation render failed"
+        # The real stderr tail should be persisted, not the generic fallback.
+        assert result.error == "stderr tail here"
 
 
 async def test_snapshot_immutability(
