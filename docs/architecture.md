@@ -52,9 +52,10 @@ src/app/
 │   └── dependencies.py         ← StorageDep for FastAPI DI
 │
 ├── media/
-│   └── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
+│   ├── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
 │   ├── ffmpeg.py               ← FFmpeg subprocess wrapper for transcoding
-│   └── normalize.py            ← video normalisation (H.264/AAC MP4)
+│   ├── normalize.py            ← video normalisation (H.264/AAC MP4)
+│   └── filmstrip.py            ← filmstrip sprite generation (extract N frames, tile to JPEG)
 │
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/

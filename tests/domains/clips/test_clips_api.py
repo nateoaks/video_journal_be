@@ -8,6 +8,7 @@ import pytest
 from httpx import AsyncClient
 
 import app.domains.clips.service as clips_service_module
+import app.media.filmstrip as filmstrip_module
 from app.media.ffprobe import FfprobeError, ProbeResult
 from app.storage.local import LocalStorage
 
@@ -46,6 +47,21 @@ async def _stub_normalize(src: str, dst: str) -> None:
     import anyio
 
     await anyio.Path(dst).write_bytes(_FAKE_MP4)
+
+
+# Minimal 1x1 JPEG bytes (valid JPEG header + EOI).
+_FAKE_JPEG = (
+    b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9"
+)
+
+
+async def _stub_generate_filmstrip(
+    src: str, dst: str, *, duration_s: float | None
+) -> None:
+    """Filmstrip stub: write a dummy JPEG to dst so process_clip can store it."""
+    import anyio
+
+    await anyio.Path(dst).write_bytes(_FAKE_JPEG)
 
 
 # ---------------------------------------------------------------------------
@@ -414,3 +430,141 @@ async def test_video_endpoint_not_ready(
     # After the background task, the clip is in failed state → video endpoint 404.
     response = await client.get(f"/api/v1/clips/{clip_id}/video")
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/clips/{id}/filmstrip
+# ---------------------------------------------------------------------------
+
+
+async def test_filmstrip_endpoint_serves_jpeg(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /clips/{id}/filmstrip returns 200 image/jpeg after processing."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+    monkeypatch.setattr(
+        filmstrip_module, "run_ffmpeg", _stub_generate_filmstrip_via_run_ffmpeg
+    )
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    response = await client.get(f"/api/v1/clips/{clip_id}/filmstrip")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/jpeg")
+
+
+async def test_filmstrip_key_populated_after_processing(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After process_clip completes, the clip record has a filmstrip_key."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+    monkeypatch.setattr(
+        filmstrip_module, "run_ffmpeg", _stub_generate_filmstrip_via_run_ffmpeg
+    )
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    # Re-fetch the clip to check the persisted filmstrip_key.
+    get_response = await client.get(f"/api/v1/clips/{clip_id}")
+    assert get_response.status_code == 200
+    body = get_response.json()
+    assert body["filmstrip_key"] is not None
+    assert body["filmstrip_key"].startswith("clips/filmstrip/")
+
+
+async def test_filmstrip_endpoint_unknown_clip_returns_404(
+    client: AsyncClient,
+) -> None:
+    """GET /clips/{unknown}/filmstrip → 404."""
+    response = await client.get(
+        "/api/v1/clips/00000000-0000-0000-0000-000000000000/filmstrip"
+    )
+    assert response.status_code == 404
+
+
+async def test_filmstrip_endpoint_failed_clip_returns_404(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /clips/{id}/filmstrip → 404 when clip is in failed state."""
+    from app.media.ffmpeg import FfmpegError
+
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+
+    async def _failing_normalize(_src: str, _dst: str) -> None:
+        raise FfmpegError("codec not found")
+
+    monkeypatch.setattr(clips_service_module, "normalize", _failing_normalize)
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    response = await client.get(f"/api/v1/clips/{clip_id}/filmstrip")
+    assert response.status_code == 404
+
+
+async def test_filmstrip_failure_does_not_block_video_endpoint(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If filmstrip generation fails, the clip is still ready and /video still works."""
+    from app.media.ffmpeg import FfmpegError
+
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+
+    async def _failing_filmstrip(args: list[str]) -> None:
+        raise FfmpegError("filmstrip failed")
+
+    monkeypatch.setattr(filmstrip_module, "run_ffmpeg", _failing_filmstrip)
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    # Clip should be ready despite filmstrip failure.
+    get_response = await client.get(f"/api/v1/clips/{clip_id}")
+    assert get_response.json()["status"] == "ready"
+
+    # Video endpoint should still serve.
+    video_response = await client.get(f"/api/v1/clips/{clip_id}/video")
+    assert video_response.status_code == 200
+
+    # Filmstrip endpoint should 404 (no filmstrip_key).
+    strip_response = await client.get(f"/api/v1/clips/{clip_id}/filmstrip")
+    assert strip_response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# helpers used by filmstrip tests
+# ---------------------------------------------------------------------------
+
+
+async def _stub_generate_filmstrip_via_run_ffmpeg(args: list[str]) -> None:
+    """Stub for filmstrip_module.run_ffmpeg: writes a dummy JPEG to the dst path.
+
+    The destination path is always the last element of the ffmpeg arg list.
+    """
+    import anyio
+
+    dst = args[-1]
+    await anyio.Path(dst).write_bytes(_FAKE_JPEG)

@@ -84,3 +84,14 @@ async def get_clip_video(clip_id: UUID, service: ClipServiceDep) -> FileResponse
     """
     path = await service.open_normalized(clip_id)
     return FileResponse(str(path), media_type="video/mp4")
+
+
+@router.get("/{clip_id}/filmstrip")
+async def get_clip_filmstrip(clip_id: UUID, service: ClipServiceDep) -> FileResponse:
+    """Return the filmstrip sprite JPEG for a ready clip.
+
+    Raises 404 via the global exception handler if the clip is not ready or
+    filmstrip generation failed during processing.
+    """
+    path = await service.open_filmstrip(clip_id)
+    return FileResponse(str(path), media_type="image/jpeg")
