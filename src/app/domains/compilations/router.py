@@ -1,12 +1,16 @@
 """API router for the compilations domain."""
 
+import dataclasses
+import json
+from collections.abc import AsyncGenerator
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Query, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import SessionDep
+from app.domains.compilations import progress
 from app.domains.compilations.dependencies import (
     CompilationServiceDep,
     get_background_compilation_service,
@@ -74,3 +78,38 @@ async def get_compilation_video(
     """
     path = await service.open_output(compilation_id)
     return FileResponse(str(path), media_type="video/mp4")
+
+
+@router.get("/{compilation_id}/events")
+async def get_compilation_events(
+    compilation_id: UUID, service: CompilationServiceDep
+) -> StreamingResponse:
+    """Stream Server-Sent Events for a compilation's render progress.
+
+    Yields one SSE data frame per progress tick and a terminal frame when the
+    render completes or fails.  Late-connecting clients receive the terminal
+    state immediately if the render already finished.
+    """
+    # Verify the compilation exists (raises NotFoundError → 404 if not).
+    await service.get(compilation_id)
+
+    async def _generate() -> AsyncGenerator[str]:
+        # If the render already finished, emit the terminal event and close.
+        terminal = progress.get_terminal(compilation_id)
+        if terminal is not None:
+            yield f"data: {json.dumps(dataclasses.asdict(terminal))}\n\n"
+            return
+
+        queue = progress.subscribe(compilation_id)
+        if queue is None:
+            # Render not yet registered (still pending).
+            yield 'data: {"progress": 0, "status": "pending"}\n\n'
+            return
+
+        while True:
+            update = await queue.get()
+            yield f"data: {json.dumps(dataclasses.asdict(update))}\n\n"
+            if update.status in ("complete", "failed"):
+                break
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")

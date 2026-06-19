@@ -84,6 +84,7 @@ src/app/
 │   │   ├── service.py
 │   │   ├── dependencies.py
 │   │   ├── router.py
+│   │   ├── progress.py
 │   │   └── utils.py
 │   └── soundtracks/            ← audio upload and streaming
 │       ├── models.py

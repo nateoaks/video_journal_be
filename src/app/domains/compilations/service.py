@@ -17,6 +17,10 @@ from app.domains.compilations.models import (
     CompilationClip,
     CompilationStatus,
 )
+from app.domains.compilations.progress import ProgressUpdate
+from app.domains.compilations.progress import finalize as _finalize
+from app.domains.compilations.progress import push_from_thread as _push
+from app.domains.compilations.progress import register as _register
 from app.domains.compilations.repository import CompilationRepository
 from app.domains.compilations.schemas import CompilationCreate
 from app.domains.compilations.utils import build_output_key
@@ -115,6 +119,8 @@ class CompilationService:
             )
             return
 
+        _register(compilation_id)
+
         compilation.status = CompilationStatus.running
         await self.repository.add(compilation)
         await self.repository.session.commit()
@@ -129,7 +135,19 @@ class CompilationService:
                 spec.trim_out_s - spec.trim_in_s for spec in clip_specs
             )
 
-            await compile_video(clip_specs, soundtrack_path, dst_path, total_duration)
+            total_us = total_duration * 1_000_000
+
+            def _on_progress(out_time_us: int) -> None:
+                pct = min(100, int(out_time_us / total_us * 100)) if total_us > 0 else 0
+                _push(compilation_id, ProgressUpdate(progress=pct, status="running"))
+
+            await compile_video(
+                clip_specs,
+                soundtrack_path,
+                dst_path,
+                total_duration,
+                on_progress=_on_progress,
+            )
 
             output_key = build_output_key(compilation.id)
 
@@ -149,6 +167,14 @@ class CompilationService:
             await self.repository.add(compilation)
             await self.repository.session.commit()
 
+            _finalize(
+                compilation_id,
+                ProgressUpdate(
+                    progress=100,
+                    status="complete",
+                    video_url=f"/api/v1/compilations/{compilation_id}/video",
+                ),
+            )
             logger.info(
                 "compilation.render.complete",
                 compilation_id=str(compilation_id),
@@ -156,6 +182,12 @@ class CompilationService:
             )
 
         except FfmpegError as exc:
+            _finalize(
+                compilation_id,
+                ProgressUpdate(
+                    progress=0, status="failed", error="Compilation render failed"
+                ),
+            )
             await self.repository.session.rollback()
             compilation = await self.repository.get(compilation_id)
             if compilation is not None:
@@ -171,6 +203,12 @@ class CompilationService:
             )
 
         except Exception:
+            _finalize(
+                compilation_id,
+                ProgressUpdate(
+                    progress=0, status="failed", error="Unexpected render error"
+                ),
+            )
             await self.repository.session.rollback()
             compilation = await self.repository.get(compilation_id)
             if compilation is not None:
