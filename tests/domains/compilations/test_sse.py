@@ -198,6 +198,42 @@ async def test_events_returns_pending_when_not_registered(
     assert payload["progress"] == 0
 
 
+async def test_events_anti_buffering_headers(
+    sse_env: dict[str, Any],
+) -> None:
+    """The SSE endpoint sets Cache-Control and X-Accel-Buffering headers."""
+    client: AsyncClient = sse_env["client"]
+    factory: async_sessionmaker[AsyncSession] = sse_env["factory"]
+
+    compilation_id = await _seed_compilation(factory, status=CompilationStatus.complete)
+    terminal = ProgressUpdate(progress=100, status="complete")
+    prog_module._terminal[compilation_id] = terminal
+
+    resp = await client.get(f"/api/v1/compilations/{compilation_id}/events")
+    assert resp.status_code == 200
+    assert resp.headers.get("cache-control") == "no-cache"
+    assert resp.headers.get("x-accel-buffering") == "no"
+
+
+async def test_events_disconnect_removes_channel(
+    sse_env: dict[str, Any],
+) -> None:
+    """When the client disconnects mid-stream, the channel is removed from _channels."""
+    factory: async_sessionmaker[AsyncSession] = sse_env["factory"]
+
+    compilation_id = await _seed_compilation(factory, status=CompilationStatus.running)
+
+    # Register a channel but never push a terminal — simulates a long-running render.
+    prog_module.register(compilation_id)
+    assert compilation_id in prog_module._channels
+
+    # Test the unsubscribe helper directly — the full router finally-block path
+    # cannot be simulated via ASGITransport (no real mid-stream disconnect).
+    prog_module.unsubscribe(compilation_id)
+
+    assert compilation_id not in prog_module._channels
+
+
 async def test_events_streams_progress_and_terminal(
     sse_env: dict[str, Any],
 ) -> None:

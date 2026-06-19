@@ -1,5 +1,6 @@
 """API router for the compilations domain."""
 
+import asyncio
 import dataclasses
 import json
 from collections.abc import AsyncGenerator
@@ -84,13 +85,21 @@ async def get_compilation_video(
 
 @router.get("/{compilation_id}/events")
 async def get_compilation_events(
-    compilation_id: UUID, service: CompilationServiceDep
+    compilation_id: UUID, request: Request, service: CompilationServiceDep
 ) -> StreamingResponse:
     """Stream Server-Sent Events for a compilation's render progress.
 
     Yields one SSE data frame per progress tick and a terminal frame when the
     render completes or fails.  Late-connecting clients receive the terminal
     state immediately if the render already finished.
+
+    Detects client disconnection via asyncio.wait_for with a 1-second timeout
+    on each queue.get(), checking is_disconnected() on timeout. Calls
+    progress.unsubscribe() in the finally block only if the client disconnects
+    (not when the render finishes normally, to preserve the terminal state for
+    late arrivals).
+
+    Response headers disable proxy/CDN buffering to ensure real-time delivery.
     """
     # Verify the compilation exists (raises NotFoundError → 404 if not).
     await service.get(compilation_id)
@@ -108,14 +117,28 @@ async def get_compilation_events(
             yield 'data: {"progress": 0, "status": "pending"}\n\n'
             return
 
-        while True:
-            update = await queue.get()
-            yield f"data: {json.dumps(dataclasses.asdict(update))}\n\n"
-            if update.status in ("complete", "failed"):
-                break
+        disconnected = False
+        try:
+            while True:
+                try:
+                    update = await asyncio.wait_for(queue.get(), timeout=1.0)
+                except TimeoutError:
+                    if await request.is_disconnected():
+                        disconnected = True
+                        break
+                    continue
+                yield f"data: {json.dumps(dataclasses.asdict(update))}\n\n"
+                if update.status in ("complete", "failed"):
+                    break
+        finally:
+            if disconnected:
+                progress.unsubscribe(compilation_id)
 
     return StreamingResponse(
         _generate(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )

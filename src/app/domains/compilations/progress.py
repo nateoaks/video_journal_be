@@ -68,6 +68,16 @@ def push_from_thread(compilation_id: UUID, update: ProgressUpdate) -> None:
     loop.call_soon_threadsafe(queue.put_nowait, update)
 
 
+def unsubscribe(compilation_id: UUID) -> None:
+    """Remove the channel for compilation_id without storing a terminal state.
+
+    Called when the SSE client disconnects before the render finishes.  Guards
+    against a concurrent finalize by only removing the entry if it still exists
+    (finalize uses dict.pop which is also atomic under the GIL).
+    """
+    _channels.pop(compilation_id, None)
+
+
 def finalize(compilation_id: UUID, update: ProgressUpdate) -> None:
     """Store the terminal state, remove the channel, and push the final event.
 
