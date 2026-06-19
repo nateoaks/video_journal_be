@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, File, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
+from app.api.deps import SessionDep
 from app.domains.clips.dependencies import ClipServiceDep, get_background_clip_service
 from app.domains.clips.schemas import ClipRead, ClipUpdate
 
@@ -14,9 +15,16 @@ router = APIRouter(prefix="/clips", tags=["clips"])
 async def create_clip(
     file: Annotated[UploadFile, File(...)],
     service: ClipServiceDep,
+    session: SessionDep,
     background_tasks: BackgroundTasks,
 ) -> ClipRead:
     clip = await service.create_from_upload(file)
+    # Commit before the background task is scheduled: FastAPI runs BackgroundTasks
+    # after the response is sent but before generator-dependency teardown, so
+    # get_session hasn't committed yet when the task's own session tries to SELECT
+    # the clip. Committing here makes the row visible. The dependency's later
+    # commit is a no-op.
+    await session.commit()
 
     clip_id = clip.id
 
