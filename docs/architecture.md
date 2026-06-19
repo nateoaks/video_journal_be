@@ -56,7 +56,7 @@ src/app/
 │   ├── ffmpeg.py               ← FFmpeg subprocess wrapper for transcoding
 │   ├── normalize.py            ← video normalisation (H.264/AAC MP4)
 │   ├── compile.py              ← compilation rendering (concat clips + mix audio)
-│   └── filmstrip.py            ← filmstrip sprite generation for clips
+│   └── filmstrip.py            ← filmstrip sprite generation (extract N frames, tile to JPEG)
 │
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/
