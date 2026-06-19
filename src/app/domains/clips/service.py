@@ -1,22 +1,33 @@
 """Business logic for the clips domain."""
 
+import tempfile
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+import anyio
 from fastapi import UploadFile
 
 from app.common.exceptions import NotFoundError, UploadTooLargeError
 from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.domains.clips.exceptions import InvalidTrimError
 from app.domains.clips.models import Clip, ClipStatus
 from app.domains.clips.repository import ClipRepository
 from app.domains.clips.schemas import ClipUpdate
-from app.domains.clips.utils import build_original_key, safe_extension
+from app.domains.clips.utils import (
+    build_normalized_key,
+    build_original_key,
+    safe_extension,
+)
+from app.media.ffmpeg import FfmpegError
 from app.media.ffprobe import FfprobeError, probe
+from app.media.normalize import normalize
 from app.storage.base import StorageBackend
+
+logger = get_logger(__name__)
 
 _CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
@@ -120,6 +131,71 @@ class ClipService:
                 await self.storage.delete(key)
 
         await self.repository.delete(clip)
+
+    async def process_clip(self, clip_id: UUID) -> None:
+        """Transcode the raw upload to a normalised MP4 and update the clip record.
+
+        Designed to run inside a background task.  On FfmpegError the clip is
+        marked failed and the error is logged; the exception is NOT re-raised so
+        the background task exits cleanly.  The temp file is always removed.
+        """
+        clip = await self.repository.get(clip_id)
+        if clip is None:
+            logger.error("clip.normalize.not_found", clip_id=str(clip_id))
+            return
+
+        src_path = self.storage.path_or_url(clip.original_key)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as _tmp:
+            dst_path = _tmp.name
+
+        try:
+            await normalize(src_path, dst_path)
+
+            normalized_key = build_normalized_key(clip_id)
+
+            async def _file_stream() -> AsyncIterator[bytes]:
+                async with await anyio.open_file(dst_path, "rb") as fh:
+                    while True:
+                        chunk = await fh.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        yield chunk
+
+            await self.storage.save(_file_stream(), normalized_key)
+
+            clip.normalized_key = normalized_key
+            clip.status = ClipStatus.ready
+            await self.repository.add(clip)
+
+        except FfmpegError as exc:
+            clip.status = ClipStatus.failed
+            clip.error_message = "Normalization failed"
+            logger.error("clip.normalize.failed", clip_id=str(clip_id), error=str(exc))
+            await self.repository.add(clip)
+
+        except Exception:
+            clip.status = ClipStatus.failed
+            clip.error_message = "Normalization failed"
+            logger.exception("clip.normalize.unexpected_error", clip_id=str(clip_id))
+            await self.repository.add(clip)
+
+        finally:
+            await anyio.to_thread.run_sync(
+                lambda: Path(dst_path).unlink(missing_ok=True)
+            )
+
+    async def open_normalized(self, clip_id: UUID) -> Path:
+        """Return the local filesystem path to the normalised MP4.
+
+        Raises NotFoundError if the clip does not exist, is not ready, or has
+        no normalised key.
+        """
+        clip = await self.repository.get(clip_id)
+        if clip is None:
+            raise NotFoundError(f"Clip {clip_id} not found")
+        if clip.status != ClipStatus.ready or clip.normalized_key is None:
+            raise NotFoundError(f"Clip {clip_id} is not ready")
+        return Path(self.storage.path_or_url(clip.normalized_key))
 
     # --- private helpers ---
 

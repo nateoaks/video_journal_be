@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     media_root: Path = Path("media")
     output_root: Path = Path("outputs")
     max_upload_bytes: int = 500 * 1024 * 1024  # 500 MiB
+    normalize_timeout_s: int = 300
 
 
 @lru_cache

@@ -53,6 +53,8 @@ src/app/
 │
 ├── media/
 │   └── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
+│   ├── ffmpeg.py               ← FFmpeg subprocess wrapper for transcoding
+│   └── normalize.py            ← video normalisation (H.264/AAC MP4)
 │
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/
