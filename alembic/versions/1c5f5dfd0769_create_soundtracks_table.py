@@ -1,7 +1,7 @@
 """create_soundtracks_table
 
 Revision ID: 1c5f5dfd0769
-Revises: 81950cc83b79
+Revises: c031cad72484
 Create Date: 2026-06-18 09:55:58.446648
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '1c5f5dfd0769'
-down_revision: Union[str, Sequence[str], None] = '81950cc83b79'
+down_revision: Union[str, Sequence[str], None] = 'c031cad72484'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
