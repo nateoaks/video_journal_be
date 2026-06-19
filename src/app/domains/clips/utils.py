@@ -33,3 +33,8 @@ def safe_extension(filename: str | None) -> str:
 def build_original_key(clip_id: uuid.UUID, ext: str) -> str:
     """Return the storage key for the raw uploaded clip file."""
     return f"clips/original/{clip_id}{ext}"
+
+
+def build_normalized_key(clip_id: uuid.UUID) -> str:
+    """Return the storage key for the normalised (transcoded) clip file."""
+    return f"clips/normalized/{clip_id}.mp4"

@@ -41,6 +41,13 @@ def _stub_probe(result: ProbeResult | Exception) -> Any:
         return _return
 
 
+async def _stub_normalize(src: str, dst: str) -> None:
+    """Normalize stub: write a dummy MP4 to dst so process_clip can stream it."""
+    import anyio
+
+    await anyio.Path(dst).write_bytes(_FAKE_MP4)
+
+
 # ---------------------------------------------------------------------------
 # POST /api/v1/clips
 # ---------------------------------------------------------------------------
@@ -302,3 +309,108 @@ async def test_delete_clip_returns_204_then_404(
 
     get_response = await client.get(f"/api/v1/clips/{clip_id}")
     assert get_response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/clips — normalisation background task is stubbed
+# ---------------------------------------------------------------------------
+
+
+async def test_upload_returns_processing_status(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Upload returns 201 with status==processing; normalize is stubbed out."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+
+    response = await client.post(
+        "/api/v1/clips",
+        files={"file": ("test.mp4", _FAKE_MP4, "video/mp4")},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "processing"
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/clips/{id}/video
+# ---------------------------------------------------------------------------
+
+
+async def test_video_endpoint_serves_file(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /clips/{id}/video returns 200 for a clip whose background task completed."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    # _stub_normalize writes a dummy file, so process_clip can stream it to storage
+    # and mark the clip ready.
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    # After the background task runs synchronously (Starlette runs it during the
+    # request in the test transport), the clip should be ready.
+    response = await client.get(f"/api/v1/clips/{clip_id}/video")
+    assert response.status_code == 200
+
+
+async def test_video_endpoint_range_request(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /clips/{id}/video with Range header returns 206."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    response = await client.get(
+        f"/api/v1/clips/{clip_id}/video",
+        headers={"Range": "bytes=0-9"},
+    )
+    assert response.status_code == 206
+    assert "content-range" in response.headers
+
+
+async def test_video_endpoint_not_found(client: AsyncClient) -> None:
+    """GET /clips/{unknown_id}/video → 404."""
+    response = await client.get(
+        "/api/v1/clips/00000000-0000-0000-0000-000000000000/video"
+    )
+    assert response.status_code == 404
+
+
+async def test_video_endpoint_not_ready(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GET /clips/{id}/video returns 404 when clip's normalisation failed."""
+    from app.media.ffmpeg import FfmpegError
+
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+
+    async def _failing_normalize(_src: str, _dst: str) -> None:
+        raise FfmpegError("codec not found")
+
+    monkeypatch.setattr(clips_service_module, "normalize", _failing_normalize)
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    # After the background task, the clip is in failed state → video endpoint 404.
+    response = await client.get(f"/api/v1/clips/{clip_id}/video")
+    assert response.status_code == 404

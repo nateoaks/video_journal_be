@@ -41,3 +41,4 @@ class Clip(Base):
         Enum(ClipStatus, native_enum=False),
         default=ClipStatus.processing,
     )
+    error_message: Mapped[str | None] = mapped_column(default=None)
