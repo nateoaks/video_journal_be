@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 500 * 1024 * 1024  # 500 MiB
     normalize_timeout_s: int = 300
 
+    cors_allow_origins: list[str] = ["http://localhost:3000"]
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -28,3 +28,8 @@ class UnsupportedMediaTypeError(AppError):
 class UploadTooLargeError(AppError):
     status_code = 413
     message = "Upload exceeds maximum allowed size"
+
+
+class RangeNotSatisfiableError(AppError):
+    status_code = 416
+    message = "Range not satisfiable"

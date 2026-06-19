@@ -6,10 +6,11 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Query, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import SessionDep
+from app.common.media_response import CACHE_IMMUTABLE, build_media_response
 from app.domains.compilations import progress
 from app.domains.compilations.dependencies import (
     CompilationServiceDep,
@@ -69,15 +70,16 @@ async def get_compilation(
 
 @router.get("/{compilation_id}/video")
 async def get_compilation_video(
-    compilation_id: UUID, service: CompilationServiceDep
-) -> FileResponse:
-    """Stream the rendered MP4 for a complete compilation.
+    compilation_id: UUID, request: Request, service: CompilationServiceDep
+) -> Response:
+    """Stream the rendered MP4 for a complete compilation with Range/206 support.
 
-    Starlette's FileResponse handles HTTP Range / 206 Partial Content natively.
     Raises 404 via the global exception handler if the compilation is not complete.
     """
     path = await service.open_output(compilation_id)
-    return FileResponse(str(path), media_type="video/mp4")
+    return await build_media_response(
+        str(path), "video/mp4", request, cache_control=CACHE_IMMUTABLE
+    )
 
 
 @router.get("/{compilation_id}/events")
@@ -112,4 +114,8 @@ async def get_compilation_events(
             if update.status in ("complete", "failed"):
                 break
 
-    return StreamingResponse(_generate(), media_type="text/event-stream")
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

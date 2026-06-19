@@ -1,10 +1,19 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, File, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 
 from app.api.deps import SessionDep
+from app.common.media_response import CACHE_IMMUTABLE, build_media_response
 from app.domains.clips.dependencies import ClipServiceDep, get_background_clip_service
 from app.domains.clips.schemas import ClipRead, ClipUpdate
 
@@ -76,22 +85,29 @@ async def delete_clip(clip_id: UUID, service: ClipServiceDep) -> None:
 
 
 @router.get("/{clip_id}/video")
-async def get_clip_video(clip_id: UUID, service: ClipServiceDep) -> FileResponse:
-    """Stream the normalised MP4 for a ready clip.
+async def get_clip_video(
+    clip_id: UUID, request: Request, service: ClipServiceDep
+) -> Response:
+    """Stream the normalised MP4 for a ready clip with Range/206 support.
 
-    Starlette's FileResponse handles HTTP Range / 206 Partial Content natively.
     Raises 404 via the global exception handler if the clip is not ready.
     """
     path = await service.open_normalized(clip_id)
-    return FileResponse(str(path), media_type="video/mp4")
+    return await build_media_response(
+        str(path), "video/mp4", request, cache_control=CACHE_IMMUTABLE
+    )
 
 
 @router.get("/{clip_id}/filmstrip")
-async def get_clip_filmstrip(clip_id: UUID, service: ClipServiceDep) -> FileResponse:
-    """Return the filmstrip sprite JPEG for a ready clip.
+async def get_clip_filmstrip(
+    clip_id: UUID, request: Request, service: ClipServiceDep
+) -> Response:
+    """Return the filmstrip sprite JPEG for a ready clip with Range/206 support.
 
     Raises 404 via the global exception handler if the clip is not ready or
     filmstrip generation failed during processing.
     """
     path = await service.open_filmstrip(clip_id)
-    return FileResponse(str(path), media_type="image/jpeg")
+    return await build_media_response(
+        str(path), "image/jpeg", request, cache_control=CACHE_IMMUTABLE
+    )
