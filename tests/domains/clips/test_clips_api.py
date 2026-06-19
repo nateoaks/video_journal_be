@@ -555,6 +555,57 @@ async def test_filmstrip_failure_does_not_block_video_endpoint(
 
 
 # ---------------------------------------------------------------------------
+# CORS + validation body-shape tests
+# ---------------------------------------------------------------------------
+
+
+async def test_cors_preflight_video_endpoint(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OPTIONS /api/v1/clips/{id}/video with CORS preflight headers returns Allow-Origin."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+    monkeypatch.setattr(clips_service_module, "normalize", _stub_normalize)
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    assert created.status_code == 201
+    clip_id = created.json()["id"]
+
+    response = await client.options(
+        f"/api/v1/clips/{clip_id}/video",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-origin" in response.headers
+
+
+async def test_patch_invalid_trim_detail_is_list(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PATCH with invalid trim → 422 whose detail is a structured list, not a string."""
+    monkeypatch.setattr(clips_service_module, "probe", _stub_probe(_GOOD_PROBE))
+
+    created = await client.post(
+        "/api/v1/clips",
+        files={"file": ("video.mp4", _FAKE_MP4, "video/mp4")},
+    )
+    clip_id = created.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/clips/{clip_id}",
+        json={"trim_in_s": "not-a-number"},
+    )
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert isinstance(detail, list), f"Expected list, got {type(detail)}: {detail!r}"
+
+
+# ---------------------------------------------------------------------------
 # helpers used by filmstrip tests
 # ---------------------------------------------------------------------------
 

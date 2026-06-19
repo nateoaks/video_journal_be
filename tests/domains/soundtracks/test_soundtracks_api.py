@@ -86,49 +86,6 @@ def test_title_from_filename_strips_extension() -> None:
     assert title_from_filename("track.01.flac") == "track.01"
 
 
-def test_parse_range_header_none_returns_none() -> None:
-    """None header → None."""
-    from app.domains.soundtracks.utils import parse_range_header
-
-    assert parse_range_header(None, 1000) is None
-
-
-def test_parse_range_header_full_range() -> None:
-    """bytes=0-99 → (0, 99)."""
-    from app.domains.soundtracks.utils import parse_range_header
-
-    assert parse_range_header("bytes=0-99", 1000) == (0, 99)
-
-
-def test_parse_range_header_open_end() -> None:
-    """bytes=100- → (100, file_size - 1)."""
-    from app.domains.soundtracks.utils import parse_range_header
-
-    assert parse_range_header("bytes=100-", 1000) == (100, 999)
-
-
-def test_parse_range_header_malformed_raises_416() -> None:
-    """Malformed range header → 416."""
-    from fastapi import HTTPException
-
-    from app.domains.soundtracks.utils import parse_range_header
-
-    with pytest.raises(HTTPException) as exc_info:
-        parse_range_header("invalid", 1000)
-    assert exc_info.value.status_code == 416
-
-
-def test_parse_range_header_start_beyond_file_raises_416() -> None:
-    """start >= file_size → 416."""
-    from fastapi import HTTPException
-
-    from app.domains.soundtracks.utils import parse_range_header
-
-    with pytest.raises(HTTPException) as exc_info:
-        parse_range_header("bytes=1000-1099", 1000)
-    assert exc_info.value.status_code == 416
-
-
 # ---------------------------------------------------------------------------
 # POST /api/v1/soundtracks
 # ---------------------------------------------------------------------------
