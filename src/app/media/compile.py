@@ -1,5 +1,6 @@
 """Compilation pipeline: render ordered, trimmed clips + soundtrack to MP4."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.media.ffmpeg import run_ffmpeg_with_progress
@@ -72,6 +73,8 @@ def build_compile_command(
         "-movflags",
         "+faststart",
         "-shortest",
+        "-stats_period",
+        "0.5",
         "-progress",
         "pipe:1",
         output_path,
@@ -85,11 +88,13 @@ async def compile_video(
     soundtrack_path: str,
     output_path: str,
     total_duration_s: float,
+    on_progress: Callable[[int], None] | None = None,
 ) -> None:
     """Render a compilation to output_path.
 
+    Calls on_progress(out_time_us) for each progress tick when provided.
     Raises FfmpegError on failure.
     """
     fade_start = max(0.0, total_duration_s - 2.0)
     args = build_compile_command(clip_specs, soundtrack_path, output_path, fade_start)
-    await run_ffmpeg_with_progress(args)
+    await run_ffmpeg_with_progress(args, on_progress=on_progress)
