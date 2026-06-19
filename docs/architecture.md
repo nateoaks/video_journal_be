@@ -43,7 +43,8 @@ src/app/
 │
 ├── common/
 │   ├── repository.py           ← BaseRepository[ModelT] generic data-access base
-│   └── exceptions.py           ← AppError, NotFoundError, ConflictError
+│   ├── exceptions.py           ← AppError, NotFoundError, ConflictError
+│   └── media_response.py       ← build_media_response() Range-aware streamer
 │
 ├── storage/
 │   ├── base.py                 ← StorageBackend ABC (save/open/delete/exists/path_or_url)
