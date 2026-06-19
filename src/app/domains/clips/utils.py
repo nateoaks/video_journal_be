@@ -38,3 +38,8 @@ def build_original_key(clip_id: uuid.UUID, ext: str) -> str:
 def build_normalized_key(clip_id: uuid.UUID) -> str:
     """Return the storage key for the normalised (transcoded) clip file."""
     return f"clips/normalized/{clip_id}.mp4"
+
+
+def build_filmstrip_key(clip_id: uuid.UUID) -> str:
+    """Return the storage key for the filmstrip sprite JPEG."""
+    return f"clips/filmstrip/{clip_id}.jpg"

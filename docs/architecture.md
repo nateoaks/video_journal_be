@@ -52,9 +52,11 @@ src/app/
 │   └── dependencies.py         ← StorageDep for FastAPI DI
 │
 ├── media/
-│   └── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
+│   ├── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
 │   ├── ffmpeg.py               ← FFmpeg subprocess wrapper for transcoding
-│   └── normalize.py            ← video normalisation (H.264/AAC MP4)
+│   ├── normalize.py            ← video normalisation (H.264/AAC MP4)
+│   ├── compile.py              ← compilation rendering (concat clips + mix audio)
+│   └── filmstrip.py            ← filmstrip sprite generation for clips
 │
 ├── domains/                    ← one self-contained package per feature
 │   ├── health/
@@ -67,6 +69,22 @@ src/app/
 │   │   ├── service.py
 │   │   ├── dependencies.py
 │   │   └── router.py
+│   ├── clips/                  ← video clip upload, normalisation, and playback
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   ├── router.py
+│   │   └── utils.py
+│   ├── compilations/           ← render ordered, trimmed clips into MP4
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   ├── router.py
+│   │   └── utils.py
 │   └── soundtracks/            ← audio upload and streaming
 │       ├── models.py
 │       ├── schemas.py
