@@ -26,6 +26,7 @@ from app.domains.compilations.schemas import CompilationCreate
 from app.domains.compilations.utils import build_output_key, truncate_stderr
 from app.media.compile import ClipSpec, compile_video
 from app.media.ffmpeg import FfmpegError
+from app.media.ffprobe import FfprobeError, probe
 from app.storage.base import StorageBackend
 
 logger = get_logger(__name__)
@@ -161,6 +162,16 @@ class CompilationService:
                         yield chunk
 
             await self.storage.save(_file_stream(), output_key)
+
+            try:
+                probe_result = await probe(dst_path)
+                compilation.duration_s = probe_result.duration_s
+            except FfprobeError as exc:
+                logger.warning(
+                    "compilation.duration.probe_failed",
+                    compilation_id=str(compilation.id),
+                    error=str(exc),
+                )
 
             compilation.output_key = output_key
             compilation.status = CompilationStatus.complete
