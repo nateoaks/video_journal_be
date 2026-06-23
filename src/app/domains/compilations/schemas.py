@@ -34,6 +34,7 @@ class CompilationRead(BaseModel):
     status: CompilationStatus
     soundtrack_id: uuid.UUID | None
     output_key: str | None
+    duration_s: float | None
     error: str | None
     created_at: datetime
     completed_at: datetime | None

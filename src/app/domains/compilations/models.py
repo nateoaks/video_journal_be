@@ -47,6 +47,7 @@ class Compilation(Base):
         default=CompilationStatus.pending,
     )
     output_key: Mapped[str | None] = mapped_column(default=None)
+    duration_s: Mapped[float | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
