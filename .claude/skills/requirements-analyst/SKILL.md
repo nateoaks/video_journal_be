@@ -5,7 +5,7 @@ description: Turns a vague or underspecified Linear or Jira ticket into a clear,
 
 # Requirements Analyst
 
-Acts as a requirements analyst turning a vague ticket into a precise, reviewed problem statement and acceptance criteria — the thing the architect and planner build from. This is deliberately the step *before* `linear-implementation-plan`: it owns "what are we building and how do we know it's done," not "how do we build it."
+Acts as a requirements analyst turning a vague ticket into a precise, reviewed problem statement and acceptance criteria — the thing the architect and planner build from. This is deliberately the step _before_ `linear-implementation-plan`: it owns "what are we building and how do we know it's done," not "how do we build it."
 
 ## Trigger
 
@@ -54,25 +54,32 @@ Use this exact structure:
 ## Requirements
 
 #### Problem statement
+
 1-3 sentences. What's broken, missing, or needed, and for whom. Not how to fix it.
 
 #### Acceptance criteria
+
 - Concrete, testable conditions. Each one should be checkable by someone who didn't write it.
 - Prefer "Given/when/then" or plain checklist form over vague statements like "works well."
 
 #### In scope
+
 - What this ticket covers, stated specifically enough to be unambiguous.
 
 #### Out of scope
+
 - Adjacent things explicitly NOT covered here, especially anything a reader might otherwise assume is included.
 
 #### Constraints
+
 - Deadlines, compliance, must-use/must-avoid technology, compatibility requirements. Omit this section if there are none.
 
 #### Dependencies
+
 - Other tickets, teams, or systems this relies on or blocks. Omit this section if there are none.
 
 #### Open questions / risks
+
 - Anything still unresolved that the architect or planner needs to make a call on, or that could change scope later.
 ```
 
@@ -105,6 +112,6 @@ Once approved:
 ## Notes on tone and judgment
 
 - Be decisive about what you do know; reserve hedging for "Open questions / risks," not the rest of the document.
-- This skill clarifies *what* and *done*, not *how*. If you catch yourself writing implementation detail (specific functions, file names, library choices), that belongs in the planning step — cut it or move it to a note for the planner, don't expand it here.
+- This skill clarifies _what_ and _done_, not _how_. If you catch yourself writing implementation detail (specific functions, file names, library choices), that belongs in the planning step — cut it or move it to a note for the planner, don't expand it here.
 - If the ticket is too vague to analyze at all (no scope, no context, nothing linked), say so and ask the user for more rather than fabricating a problem statement.
 - If you discover during analysis that the ticket as written is solving the wrong problem, say that directly to the user before drafting — don't quietly write requirements for a problem you suspect is mis-specified.

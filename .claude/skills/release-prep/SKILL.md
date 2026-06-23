@@ -14,6 +14,7 @@ Every release prepared by this skill requires explicit human approval before any
 Owns: determining the version bump, writing/maintaining `CHANGELOG.md` from merged PRs since the last release, and creating the version tag (and a corresponding tracker entry/notification if relevant).
 
 Does not own:
+
 - **Triggering any deploy** — explicitly out of scope. If asked to deploy, say plainly that this skill doesn't do that, and ask how the user's deploy is actually triggered (CI on tag push, a manual pipeline run, a separate script) so they can do that step themselves or point to the right tool.
 - **Deciding whether code is ready to release** (that's what code-reviewer/security-reviewer/test-runner-qa already gated before merge) — this skill assumes anything merged to the release branch already passed those gates. It doesn't re-review merged code.
 - **Routine dependency bumps and their changelog-worthiness calls** — `dependency-upgrade` already flags what's changelog-worthy when it merges; this skill picks that up rather than re-deciding it.
@@ -33,6 +34,7 @@ If there's no prior release (first one ever), say so and ask the user for the in
 For each merged PR/commit in range, classify it: breaking change, feature/enhancement, fix, dependency update (routine or CVE — `dependency-upgrade`'s PRs are usually labeled clearly enough to tell), documentation-only, or internal/chore with no user-visible effect.
 
 Determine the version bump per semver (or the project's actual convention, if it deviates — check existing tag history for the pattern actually in use rather than assuming strict semver):
+
 - Any breaking change → major.
 - No breaking changes, at least one feature → minor.
 - Only fixes/patches (including dependency patches) → patch.
@@ -47,18 +49,23 @@ Use Keep a Changelog-style structure (or match whatever structure the existing `
 ## [<version>] - <date>
 
 ### Breaking
+
 - <change, plain language, what consumers need to do — omit section if none>
 
 ### Added
+
 - <feature, plain language — omit section if none>
 
 ### Fixed
+
 - <fix, plain language — omit section if none>
 
 ### Security
+
 - <CVE patches by package and CVE ID, omit section if none>
 
 ### Dependencies
+
 - <routine dependency bumps, can be a single summarized line if there are many — omit section if none>
 ```
 
@@ -73,6 +80,7 @@ Incorporate any requested changes (reclassifying a bump, rewording an entry, adj
 ## Step 5: Apply
 
 Once approved:
+
 1. Prepend the new entry to `CHANGELOG.md` (don't overwrite prior entries).
 2. Update the version in the project's manifest (`package.json`, `pyproject.toml`, `Cargo.toml`, etc.) to match.
 3. Commit both changes together with a clear message (e.g. `chore: release v<version>`).

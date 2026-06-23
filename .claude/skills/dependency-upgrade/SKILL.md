@@ -9,10 +9,10 @@ Keeps dependencies current and patches known vulnerabilities — the one skill i
 
 ## The autonomy line
 
-| Bump type | Routine staleness | CVE patch |
-|---|---|---|
-| Patch (`x.y.Z`) | Auto-PR, no human approval before push | Auto-PR, no human approval before push |
-| Minor (`x.Y.z`) | Auto-PR, no human approval before push | Auto-PR, no human approval before push |
+| Bump type       | Routine staleness                       | CVE patch                                                                                                                                         |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Patch (`x.y.Z`) | Auto-PR, no human approval before push  | Auto-PR, no human approval before push                                                                                                            |
+| Minor (`x.Y.z`) | Auto-PR, no human approval before push  | Auto-PR, no human approval before push                                                                                                            |
 | Major (`X.y.z`) | **Human sign-off required before push** | Auto-PR, no human approval before push — but the PR description must surface that this is a major bump and name the specific breaking-change risk |
 
 "Auto-PR, no human approval before push" still requires the check gate to pass first — autonomy applies to the human-approval checkpoint, not to the check gate. A failing check gate always stops the skill, regardless of category.
@@ -37,6 +37,7 @@ Classify each available update by bump type (patch/minor/major, per semver or th
 For CVEs: check severity from the advisory (critical/high/medium/low). Act on all of them per the autonomy line above regardless of bump size, but note severity in the ticket/PR so the human can prioritize review order even though no approval gate blocks the push.
 
 For routine staleness: don't update everything just because a newer version exists. Skip:
+
 - Versions explicitly pinned with a comment explaining why (don't silently override a documented pin).
 - Pre-release/beta versions as the update target unless the current version is already pre-release.
 - Updates to a package that's about to be replaced/removed per any open ticket or architecture doc referencing it (check briefly; don't deep-search for this).
@@ -46,6 +47,7 @@ If genuinely unsure whether a routine update is safe to batch (e.g. the changelo
 ## Step 3: Apply patch/minor bumps (routine and CVE)
 
 For each patch/minor bump being applied:
+
 1. Update the manifest and lockfile.
 2. Run the project's full check gate (same command convention as `linear-implementation-build` — check README/CLAUDE.md/Makefile/package scripts for the documented command).
 3. If the check gate fails for a specific bump, drop that one from the batch and report it separately rather than blocking the rest — a single problematic dependency shouldn't hold up everything else that's safe.

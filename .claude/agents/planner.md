@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Use to draft a file-level implementation plan for a Linear ticket that already has requirements. Invoke when the user asks to "plan", "create a plan for", or "plan out" a ticket, or when requirements-analyst has just finished and the next step is planning.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, WebFetch
 model: opus
 ---
 

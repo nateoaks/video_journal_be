@@ -136,7 +136,7 @@ Every "approval" in this pipeline is a real stop, not a formality:
 - `requirements-analyst` — asks clarifying questions before drafting; asks for approval before writing back to the ticket.
 - `architect` — same pattern, plus its decisions are expensive to reverse, so its clarifying step pushes harder on real tradeoffs.
 - `linear-implementation-plan` — same pattern; checks against an architecture doc's constraints if one exists.
-- `linear-implementation-build` — runs a check gate (lint/typecheck/test), then test-runner-qa/code-reviewer/security-reviewer/performance-reviewer/documentation, then **shows the full diff for explicit approval before committing anything**. That single approval covers everything after it — commit, push, and PR creation happen automatically once given; there's no separate push/PR gate.
+- `linear-implementation-build` — runs a check gate (lint/typecheck/test), then test-runner-qa/code-reviewer/security-reviewer/performance-reviewer/documentation, then commits, pushes, and opens a PR automatically once all review findings are resolved. No diff approval gate.
 - `release-prep` — **no autonomous path at all**; always asks before tagging or writing the CHANGELOG.
 - `dependency-upgrade` — the one skill designed for *less* oversight: patch/minor bumps auto-PR without a pre-push approval (still gated on the check gate passing); major bumps need sign-off; CVE patches proceed regardless of bump size, with the breaking-change risk surfaced explicitly rather than hidden.
 

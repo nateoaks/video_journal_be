@@ -11,7 +11,7 @@ Acts as a staff/principal engineer making the system-level design call for a pro
 
 This skill operates one level up from a single ticket. It typically consumes the output of `requirements-analyst` (a `## Requirements` section: problem, acceptance criteria, scope) and produces a design decision that an entire project or epic's worth of tickets will be planned against.
 
-It does **not** re-do what `linear-implementation-plan` already does. That skill's "Approach" field and its "Architecture" review pass (fit existing patterns, no duplicate abstractions, respects module boundaries, no circular deps) are a *local, per-ticket check* — they verify one ticket's plan doesn't violate decisions that already exist. This skill is where those decisions get made in the first place, for things big enough that a single ticket's plan shouldn't be deciding them ad hoc:
+It does **not** re-do what `linear-implementation-plan` already does. That skill's "Approach" field and its "Architecture" review pass (fit existing patterns, no duplicate abstractions, respects module boundaries, no circular deps) are a _local, per-ticket check_ — they verify one ticket's plan doesn't violate decisions that already exist. This skill is where those decisions get made in the first place, for things big enough that a single ticket's plan shouldn't be deciding them ad hoc:
 
 - New service/module vs. extending an existing one
 - Data model for new entities, and how they relate to existing ones
@@ -30,6 +30,7 @@ Activate when the user says "design [project/epic]," "architect this," "what's t
 Identify whether this is a Linear project or a Jira epic (same disambiguation approach as other skills: explicit naming > established context > try Linear's `Linear:get_project` first, fall back to Jira if not found, ask if unclear).
 
 Fetch:
+
 - The project/epic itself, and any `## Requirements` sections already written on it or its child tickets.
 - Existing architecture docs for the area, if any (`Linear:list_documents` scoped to the project; `Atlassian Rovo:search` for Confluence pages if Jira). Don't propose a redesign of something already decided without flagging that explicitly.
 - A representative sample of the existing codebase structure relevant to this area — enough to know what patterns already exist, not a full audit.
@@ -62,27 +63,35 @@ Use this exact structure:
 # Architecture: <project/epic name>
 
 #### Context
+
 1-3 sentences. What problem this serves, referencing the requirements doc rather than restating it.
 
 #### Decision
+
 The chosen approach, stated plainly. What it is, in concrete terms — not a survey of options.
 
 #### Alternatives considered
+
 - Each real alternative, in one line, with why it lost out. Skip alternatives no one would seriously propose.
 
 #### Components and boundaries
+
 - New or changed components, what each owns, and the contracts between them (APIs, events, shared schemas).
 
 #### Data model
+
 - New or changed entities, their key fields/relationships. Omit if nothing changes here.
 
 #### Technology choices
+
 - Anything non-default the project depends on, and why. Omit if nothing's non-default.
 
 #### Constraints for implementation
+
 - Things every ticket's implementation plan must respect (e.g. "all writes to X go through service Y," "no direct DB access from the new module"). This is the section the planner skill should check tickets against.
 
 #### Risks and open questions
+
 - What could invalidate this decision, and what's still unresolved.
 ```
 

@@ -10,6 +10,7 @@ Acts as a sharp senior engineer doing code review — checking that a diff is co
 ## Scope boundary
 
 This skill owns correctness, readability, and plan/architecture adherence. It explicitly does not own:
+
 - **Security** — auth, input validation, secrets, injection risks. That's `security-reviewer`. If something looks like a security issue, flag that it exists and that security-reviewer should look at it, but don't do that review here.
 - **Architecture decisions** — if the diff reveals the ticket needed a system-level call that wasn't made, flag it and point to `architect`; don't make the call here.
 - **Whether the right thing was built** — if the code correctly implements the plan but the plan itself seems wrong, flag it as a note, don't block on it. Scope correctness is `requirements-analyst`'s job, not this one's.
@@ -23,6 +24,7 @@ Activate when the user says "review this," "code review [ticket ID]," "check my 
 Get the diff: uncommitted changes (`git diff`, `git diff --staged`), a specific commit (`git show`), or a branch against its base (`git diff main...HEAD`). If it's unclear which, ask.
 
 Get the spec to review against:
+
 - The `## Implementation Plan` section from the ticket, if there is one.
 - The `## Requirements` section, if present, for acceptance criteria.
 - Any architecture doc's "Constraints for implementation" section, if the project has one (same lookup `linear-implementation-plan` does: check for a Linear project document or Jira epic section titled "Architecture").

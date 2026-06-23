@@ -68,6 +68,8 @@ git worktree add .claude/worktrees/<ticket-id> -b <branch-name> origin/main
 
 All subsequent implementer work (edits, `poe check`, commit) happens inside `.claude/worktrees/<ticket-id>/`. Pass the worktree path to the implementer so it knows where to operate.
 
+When passing the worktree path to agents or running shell commands yourself, use the **relative path** `.claude/worktrees/<ticket-id>` rather than the absolute path — the bash tool starts in the project root, so relative paths work and avoid the need for an absolute-path permission. Example: `cd .claude/worktrees/BLA-20 && uv run poe check`.
+
 Dispatch the `implementer` agent. It fetches the plan, writes the code, and runs the check gate, then stops (per its own agent definition — it does not call the other review agents itself).
 
 Once the check gate passes, dispatch in turn:

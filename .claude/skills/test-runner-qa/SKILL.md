@@ -10,7 +10,8 @@ Runs the test suite and turns the result into a structured, actionable report �
 ## Scope boundary
 
 This skill owns: executing tests, reporting failures with enough detail to act on, and checking that new/changed code and stated acceptance criteria have corresponding test coverage. It does not own:
-- **Whether the test logic itself is good** (asserting the right things, not testing implementation details) — that's `code-reviewer`'s test-quality pass. This skill checks *that* coverage exists, not whether existing tests are well-written.
+
+- **Whether the test logic itself is good** (asserting the right things, not testing implementation details) — that's `code-reviewer`'s test-quality pass. This skill checks _that_ coverage exists, not whether existing tests are well-written.
 - **Flaky/nondeterministic test investigation** — out of scope per current design; note it if observed, don't chase it down.
 - **Fixing failures** — report them; the implementer or build skill fixes and re-runs.
 
@@ -23,6 +24,7 @@ Activate when the user says "run the tests," "what's failing," "are we covered,"
 Don't guess a generic `npm test` if the repo defines something more specific. Check, in order: README, CLAUDE.md, Makefile, package.json scripts, or other project config for the documented test command. Use that one specifically.
 
 Determine scope:
+
 - If invoked on a specific diff/branch (standalone, or from the build skill), identify which files changed (`git diff --name-only` against the relevant base) — this scopes the coverage check in Step 3.
 - If invoked generally ("run the tests"), run the full suite.
 
@@ -48,12 +50,15 @@ Structure the report as:
 
 ```markdown
 ## Test results
+
 [count] passed, [count] failed, [count] skipped
 
 ### Failures
+
 - `path/to/test.spec.ts` — [test name]: [error/assertion, and your read on the root cause if apparent]
 
 ### Coverage gaps
+
 - Acceptance criteria with no test: [list, or omit section if none]
 - Untested non-trivial paths in changed code: [file:line — what's untested, why it matters]
 ```

@@ -10,6 +10,7 @@ Acts as a performance engineer reviewing a diff for inefficiency before a human 
 ## Scope boundary
 
 This skill owns: algorithmic complexity, database/query efficiency, unnecessary or repeated computation, memory growth, and blocking operations on hot paths. It does not own:
+
 - **Correctness or readability** — `code-reviewer`.
 - **Security** — `security-reviewer`, even where the two overlap (e.g. an unbounded query is both a performance and a potential DoS issue — flag the performance angle here, note that security-reviewer should look at the DoS angle, don't write up both in full).
 - **Whether the system's overall architecture can scale** (sharding, caching layer choices, read replicas) — that's a system-level call for `architect`, not a per-diff finding. If a diff's performance problem is really "the architecture doesn't support this load," say so and point upstream rather than trying to fix it with a local patch.

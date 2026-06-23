@@ -4,7 +4,7 @@ Run each pass that applies to the diff's surface (see Step 1 of the main skill).
 
 ## 1. Authentication and authorization pass
 
-For any new or modified endpoint, handler, or action: is there an explicit auth check, and is it the *right* check (not just "logged in" when it should be "owns this resource" or "has this role")? Look specifically for: checks present on the main path but missing on an alternate path (e.g. a bulk-action variant of an already-protected single-action endpoint), authorization checked on read but not on write (or vice versa), and IDs taken from user input used to fetch records without verifying the requester actually owns/can access that record (IDOR).
+For any new or modified endpoint, handler, or action: is there an explicit auth check, and is it the _right_ check (not just "logged in" when it should be "owns this resource" or "has this role")? Look specifically for: checks present on the main path but missing on an alternate path (e.g. a bulk-action variant of an already-protected single-action endpoint), authorization checked on read but not on write (or vice versa), and IDs taken from user input used to fetch records without verifying the requester actually owns/can access that record (IDOR).
 
 ## 2. Input validation and injection pass
 

@@ -1,11 +1,11 @@
 ---
 name: linear-implementation-build
-description: Implements a Linear ticket's approved implementation plan end to end — creates a branch, writes the code and tests following the plan, runs the project's check/lint/test gate, shows the diff for approval, then (once approved) commits, pushes, opens a PR, and moves the ticket to In Review with no separate push/PR approval gate. Use this skill whenever the user says "implement TICKET-ID", "build TICKET-ID", "ship TICKET-ID", or otherwise asks to turn an already-planned Linear ticket into actual code and a PR — even if they don't use the exact word "implement." Always use this skill for this workflow rather than improvising branch names, commit formats, or PR structure ad hoc, since it encodes the required conventions and approval checkpoints.
+description: Implements a Linear ticket's approved implementation plan end to end — creates a branch, writes the code and tests following the plan, runs the project's check/lint/test gate, runs the review chain, then commits, pushes, and opens a PR automatically once all review findings are resolved. No diff approval gate. Use this skill whenever the user says "implement TICKET-ID", "build TICKET-ID", "ship TICKET-ID", or otherwise asks to turn an already-planned Linear ticket into actual code and a PR — even if they don't use the exact word "implement." Always use this skill for this workflow rather than improvising branch names, commit formats, or PR structure ad hoc, since it encodes the required conventions.
 ---
 
 # Linear Implementation Build
 
-Takes a Linear ticket that already has an approved `## Implementation Plan` and turns it into a branch, code, tests, a passing check gate, and (with explicit approval) a pushed PR.
+Takes a Linear ticket that already has an approved `## Implementation Plan` and turns it into a branch, code, tests, a passing check gate, and an automatically pushed PR.
 
 > Placeholders used throughout: `<TEAM>` is the issue-tracker key for the project (e.g. the Linear team prefix); `<id>` is the ticket number; `<slug>` is a short kebab-case description of the ticket. This workflow is language- and framework-agnostic — concrete tool commands shown are examples; substitute the equivalent for the repo at hand.
 

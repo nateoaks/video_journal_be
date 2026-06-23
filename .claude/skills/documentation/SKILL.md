@@ -23,7 +23,7 @@ Activate when the user says "update the docs," "document this," "are the docs st
 
 Get the diff (uncommitted, the just-created PR's branch vs. base, or a specific commit/branch if invoked standalone). Identify the repo's README(s) and any `docs/` directory or equivalent.
 
-Get the implementation plan and requirements if available — the "Goal" and "Problem statement" are usually better source material for human-readable doc prose than the diff alone, since they explain *why*, which the code by itself doesn't.
+Get the implementation plan and requirements if available — the "Goal" and "Problem statement" are usually better source material for human-readable doc prose than the diff alone, since they explain _why_, which the code by itself doesn't.
 
 ## Step 2: Find what's now stale or missing
 
@@ -56,4 +56,4 @@ If invoked standalone with no PR yet: just apply the edits and let the user deci
 - Do not touch external help-center or marketing content.
 - Do not invent documentation for behavior that doesn't exist, or pad docstrings with restated-signature filler just to show coverage.
 - Do not open a second PR for doc changes when invoked from the build flow — amend the existing one.
-- Do not silently change documented behavior to match what you think the code *should* do instead of what it *actually* does — if the code and its existing docs disagree because the code is wrong, flag that as a code issue (point to `code-reviewer`), don't paper over it by rewriting the docs to match a bug.
+- Do not silently change documented behavior to match what you think the code _should_ do instead of what it _actually_ does — if the code and its existing docs disagree because the code is wrong, flag that as a code issue (point to `code-reviewer`), don't paper over it by rewriting the docs to match a bug.

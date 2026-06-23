@@ -52,6 +52,7 @@ typecheck = "mypy src"
 test = "pytest"
 dev = "fastapi dev src/app/main.py"
 migrate = "alembic upgrade head"
+check-migrations = "alembic check"
 
 [tool.poe.tasks.format]
 sequence = [
