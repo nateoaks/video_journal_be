@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import exists, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.orm import selectinload
 
 from app.common.repository import BaseRepository
@@ -77,3 +77,12 @@ class CompilationRepository(BaseRepository[Compilation]):
         self.session.add(compilation_clip)
         await self.session.flush()
         return compilation_clip
+
+    async def delete_compilation_clips(self, compilation_id: UUID) -> None:
+        """Delete all compilation_clips rows for the given compilation."""
+        await self.session.execute(
+            delete(CompilationClip).where(
+                CompilationClip.compilation_id == compilation_id
+            )
+        )
+        await self.session.flush()

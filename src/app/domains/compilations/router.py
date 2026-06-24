@@ -61,6 +61,18 @@ async def list_compilations(
     return [CompilationRead.model_validate(c) for c in compilations]
 
 
+@router.delete("/{compilation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_compilation(
+    compilation_id: UUID,
+    service: CompilationServiceDep,
+) -> None:
+    """Delete a compilation and its output file.
+
+    Returns 204 on success, 404 if not found, 409 if the compilation is running.
+    """
+    await service.delete(compilation_id)
+
+
 @router.get("/{compilation_id}")
 async def get_compilation(
     compilation_id: UUID, service: CompilationServiceDep
