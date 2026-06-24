@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 import anyio
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -23,6 +24,7 @@ from app.domains.compilations.models import (
 from app.domains.compilations.repository import CompilationRepository
 from app.domains.compilations.service import CompilationService
 from app.domains.soundtracks.models import Soundtrack
+from app.domains.soundtracks.models import Soundtrack as SoundtrackModel
 from app.main import create_app
 from app.media.ffmpeg import FfmpegError
 from app.storage import get_storage
@@ -437,6 +439,221 @@ async def test_render_failure_marks_compilation_failed(
         assert result.status == CompilationStatus.failed
         # The real stderr tail should be persisted, not the generic fallback.
         assert result.error == "stderr tail here"
+
+
+async def test_delete_compilation_happy_path(
+    test_env: dict[str, Any],
+) -> None:
+    """DELETE /{id} returns 204, removes the output file, and GET returns 404."""
+    client: AsyncClient = test_env["client"]
+    storage: LocalStorage = test_env["storage"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    soundtrack_id = await _seed_soundtrack(storage, factory)
+    output_key = f"outputs/{uuid4()}.mp4"
+    output_path = Path(storage.path_or_url(output_key))
+    await anyio.to_thread.run_sync(
+        lambda: (
+            output_path.parent.mkdir(parents=True, exist_ok=True),
+            output_path.write_bytes(_FAKE_MP4),
+        )
+    )
+
+    async with factory() as session:
+        compilation = Compilation(
+            status=CompilationStatus.complete,
+            soundtrack_id=soundtrack_id,
+            output_key=output_key,
+        )
+        session.add(compilation)
+        await session.commit()
+        compilation_id = compilation.id
+
+    # File exists before delete
+    assert await anyio.to_thread.run_sync(output_path.exists)
+
+    resp = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert resp.status_code == 204
+
+    # Output file is gone
+    assert not await anyio.to_thread.run_sync(output_path.exists)
+
+    # GET now returns 404
+    get_resp = await client.get(f"/api/v1/compilations/{compilation_id}")
+    assert get_resp.status_code == 404
+
+    # Absent from list
+    list_resp = await client.get("/api/v1/compilations")
+    assert list_resp.status_code == 200
+    ids = [c["id"] for c in list_resp.json()]
+    assert str(compilation_id) not in ids
+
+
+async def test_delete_compilation_second_delete_returns_404(
+    test_env: dict[str, Any],
+) -> None:
+    """A second DELETE on the same id returns 404."""
+    client: AsyncClient = test_env["client"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    async with factory() as session:
+        compilation = Compilation(status=CompilationStatus.failed)
+        session.add(compilation)
+        await session.commit()
+        compilation_id = compilation.id
+
+    first = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert first.status_code == 204
+
+    second = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert second.status_code == 404
+
+
+async def test_delete_compilation_unknown_uuid_returns_404(
+    test_env: dict[str, Any],
+) -> None:
+    """DELETE with an unknown UUID returns 404."""
+    client: AsyncClient = test_env["client"]
+
+    resp = await client.delete(
+        "/api/v1/compilations/00000000-0000-0000-0000-000000000000"
+    )
+    assert resp.status_code == 404
+
+
+async def test_delete_compilation_running_guard(
+    test_env: dict[str, Any],
+) -> None:
+    """DELETE returns 409 for a running compilation; the row is still accessible."""
+    client: AsyncClient = test_env["client"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    async with factory() as session:
+        compilation = Compilation(status=CompilationStatus.running)
+        session.add(compilation)
+        await session.commit()
+        compilation_id = compilation.id
+
+    resp = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert resp.status_code == 409
+
+    # Row still exists
+    get_resp = await client.get(f"/api/v1/compilations/{compilation_id}")
+    assert get_resp.status_code == 200
+
+    # Still in list
+    list_resp = await client.get("/api/v1/compilations")
+    ids = [c["id"] for c in list_resp.json()]
+    assert str(compilation_id) in ids
+
+
+async def test_delete_compilation_cleans_snapshot_rows(
+    test_env: dict[str, Any],
+) -> None:
+    """After delete, compilation_clips rows are gone and a new compilation can be created."""
+    client: AsyncClient = test_env["client"]
+    storage: LocalStorage = test_env["storage"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    soundtrack_id = await _seed_soundtrack(storage, factory)
+    clip_id = await _seed_ready_clip(storage, factory)
+
+    async with factory() as session:
+        compilation = Compilation(
+            status=CompilationStatus.pending,
+            soundtrack_id=soundtrack_id,
+        )
+        session.add(compilation)
+        await session.commit()
+
+        snapshot = CompilationClip(
+            compilation_id=compilation.id,
+            clip_id=clip_id,
+            position=0,
+            trim_in_s=0.0,
+            trim_out_s=5.0,
+        )
+        session.add(snapshot)
+        await session.commit()
+        compilation_id = compilation.id
+
+    resp = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert resp.status_code == 204
+
+    # No compilation_clips rows remain for this compilation
+    async with factory() as session:
+        rows = (
+            (
+                await session.execute(
+                    sa_select(CompilationClip).where(
+                        CompilationClip.compilation_id == compilation_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 0
+
+
+async def test_delete_compilation_does_not_remove_clip_or_soundtrack(
+    test_env: dict[str, Any],
+) -> None:
+    """Deleting a compilation leaves the referenced Clip and Soundtrack rows intact."""
+    client: AsyncClient = test_env["client"]
+    storage: LocalStorage = test_env["storage"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    soundtrack_id = await _seed_soundtrack(storage, factory)
+    clip_id = await _seed_ready_clip(storage, factory)
+
+    async with factory() as session:
+        compilation = Compilation(
+            status=CompilationStatus.failed,
+            soundtrack_id=soundtrack_id,
+        )
+        session.add(compilation)
+        await session.commit()
+
+        snapshot = CompilationClip(
+            compilation_id=compilation.id,
+            clip_id=clip_id,
+            position=0,
+            trim_in_s=0.0,
+            trim_out_s=5.0,
+        )
+        session.add(snapshot)
+        await session.commit()
+        compilation_id = compilation.id
+
+    resp = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert resp.status_code == 204
+
+    async with factory() as session:
+        clip_row = await session.get(Clip, clip_id)
+        st_row = await session.get(SoundtrackModel, soundtrack_id)
+        assert clip_row is not None
+        assert st_row is not None
+
+
+async def test_delete_compilation_no_output_key(
+    test_env: dict[str, Any],
+) -> None:
+    """DELETE returns 204 for a pending/failed compilation with no output_key."""
+    client: AsyncClient = test_env["client"]
+    factory: async_sessionmaker[AsyncSession] = test_env["factory"]
+
+    async with factory() as session:
+        compilation = Compilation(
+            status=CompilationStatus.pending,
+            output_key=None,
+        )
+        session.add(compilation)
+        await session.commit()
+        compilation_id = compilation.id
+
+    resp = await client.delete(f"/api/v1/compilations/{compilation_id}")
+    assert resp.status_code == 204
 
 
 async def test_snapshot_immutability(

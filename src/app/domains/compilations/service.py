@@ -90,6 +90,25 @@ class CompilationService:
         results = await self.repository.list_recent(limit=limit, offset=offset)
         return list(results)
 
+    async def delete(self, compilation_id: UUID) -> None:
+        """Delete a compilation and its output file.
+
+        Raises NotFoundError if the compilation does not exist.
+        Raises ConflictError if the compilation is currently running.
+        Deletes the output file from storage before removing the DB rows so that
+        a partial failure leaves the row intact (safe to retry).
+        """
+        compilation = await self.repository.get(compilation_id)
+        if compilation is None:
+            raise NotFoundError(f"Compilation {compilation_id} not found")
+        if compilation.status == CompilationStatus.running:
+            raise ConflictError("Cannot delete a running compilation")
+        if compilation.output_key is not None:
+            await self.storage.delete(compilation.output_key)
+        await self.repository.delete_compilation_clips(compilation_id)
+        await self.repository.delete(compilation)
+        logger.info("compilation.deleted", compilation_id=str(compilation_id))
+
     async def open_output(self, compilation_id: UUID) -> Path:
         """Return the local filesystem path to the rendered MP4.
 
