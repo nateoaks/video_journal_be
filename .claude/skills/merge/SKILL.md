@@ -1,11 +1,11 @@
 ---
 name: merge
-description: Merges an approved PR into main, updates the Linear ticket to Done, and removes the local worktree and branch. Run manually after a PR has been reviewed and approved — not part of the automated pipeline. Handles conflict detection: stops and reports rather than resolving conflicts automatically.
+description: Merges a PR into main, updates the Linear ticket to Done, and removes the local worktree and branch. Run manually after a PR is ready to merge — not part of the automated pipeline. Handles conflict detection: stops and reports rather than resolving conflicts automatically.
 ---
 
 # Merge
 
-Merges an approved PR, moves the Linear ticket to Done, and cleans up the local worktree created by the pipeline.
+Merges a PR, moves the Linear ticket to Done, and cleans up the local worktree created by the pipeline.
 
 > Placeholders: `<ticket-id>` is the Linear ticket key (e.g. `BLA-7`), `<branch-name>` is the feature branch.
 
@@ -33,10 +33,11 @@ gh pr view <pr-number> --json mergeable,mergeStateStatus,reviewDecision,statusCh
 
 Evaluate the response:
 
-- **`reviewDecision` is not `APPROVED`** — stop and tell the user the PR hasn't been approved yet; don't proceed.
 - **`mergeStateStatus` is `BLOCKED`** — stop and report what's blocking (required checks still running, dismissals needed, etc.).
 - **`mergeable` is `CONFLICTING`** — stop and report which files conflict (see Step 3). Do not attempt to resolve them automatically.
 - **All clear** — proceed to Step 4.
+
+Note: `reviewDecision` may be empty in repos without required-review branch protection rules. Do not block on it — only block if it is explicitly `CHANGES_REQUESTED`.
 
 ## Step 3: Conflict report (if applicable)
 
@@ -54,10 +55,10 @@ Report the conflicting file paths and stop. Tell the user to resolve conflicts i
 ## Step 4: Merge the PR
 
 ```bash
-gh pr merge <pr-number> --squash --delete-remote-branch
+gh pr merge <pr-number> --squash
 ```
 
-Use `--squash` to keep the main branch history linear. `--delete-remote-branch` removes the remote branch immediately after merge.
+Use `--squash` to keep the main branch history linear. Do not pass `--delete-branch` here — it will fail if the worktree is still checked out on that branch. The remote branch is deleted in Step 6 after the worktree is removed.
 
 Confirm the merge completed:
 
@@ -76,15 +77,16 @@ Move the ticket to **Done** via `Linear:save_issue` (`state: "Done"`). If that M
 ```bash
 git worktree remove .claude/worktrees/<ticket-id> --force
 git branch -d <branch-name>
+git push origin --delete <branch-name> 2>/dev/null || true
 ```
 
-`--force` handles the case where the worktree has a detached HEAD after the squash merge. The local branch is safe to delete because the remote branch was already removed in Step 4 and the commits are now on main.
+`--force` handles the case where the worktree has a detached HEAD after the squash merge. The local branch is safe to delete because the commits are now on main. The remote branch delete is a best-effort cleanup (it may already be gone if GitHub auto-deleted it).
 
 Confirm to the user: PR merged, ticket moved to Done, worktree removed.
 
 ## What NOT to do
 
-- Do not merge a PR that isn't approved — `reviewDecision` must be `APPROVED`.
+- Do not merge a PR if `reviewDecision` is `CHANGES_REQUESTED` — the reviewer explicitly rejected it.
 - Do not attempt to resolve merge conflicts automatically — stop and hand off to the user.
 - Do not delete the worktree if the merge failed — the branch and worktree must stay intact so the user can recover.
 - Do not push directly to main or skip the PR — the merge always goes through GitHub's PR merge, never `git push origin main`.
