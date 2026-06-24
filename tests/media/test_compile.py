@@ -100,3 +100,85 @@ def test_build_compile_command_output_path_last_positional() -> None:
     output = "out.mp4"
     cmd = build_compile_command(specs, "track.mp3", output, 5.0)
     assert cmd[-1] == output
+
+
+# ---------------------------------------------------------------------------
+# mix_clip_audio=False (default) — command must be byte-for-byte unchanged
+# ---------------------------------------------------------------------------
+
+
+def test_default_path_no_amix() -> None:
+    """Default command (mix_clip_audio omitted) contains no amix filter."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(specs, "track.mp3", "out.mp4", 8.0)
+    fc_idx = cmd.index("-filter_complex")
+    fc = cmd[fc_idx + 1]
+    assert "amix" not in fc
+
+
+def test_default_path_maps_aout() -> None:
+    """Default command maps [aout] (not [mixout])."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(specs, "track.mp3", "out.mp4", 8.0)
+    assert "[aout]" in cmd
+    assert "[mixout]" not in cmd
+
+
+# ---------------------------------------------------------------------------
+# mix_clip_audio=True — amix branch
+# ---------------------------------------------------------------------------
+
+
+def test_mix_clip_audio_produces_amix() -> None:
+    """mix_clip_audio=True puts amix in filter_complex."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(specs, "track.mp3", "out.mp4", 8.0, mix_clip_audio=True)
+    fc_idx = cmd.index("-filter_complex")
+    fc = cmd[fc_idx + 1]
+    assert "amix" in fc
+
+
+def test_mix_clip_audio_clip_audio_concat() -> None:
+    """mix_clip_audio=True includes concat=n=N:v=0:a=1 for clip audio."""
+    specs = _make_specs(3)
+    cmd = build_compile_command(
+        specs, "track.mp3", "out.mp4", 14.0, mix_clip_audio=True
+    )
+    fc_idx = cmd.index("-filter_complex")
+    fc = cmd[fc_idx + 1]
+    assert "concat=n=3:v=0:a=1" in fc
+
+
+def test_mix_clip_audio_maps_mixout() -> None:
+    """mix_clip_audio=True maps [mixout] not [aout]."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(specs, "track.mp3", "out.mp4", 8.0, mix_clip_audio=True)
+    assert "[mixout]" in cmd
+    assert "[aout]" not in cmd
+
+
+def test_mix_clip_audio_still_has_afade() -> None:
+    """mix_clip_audio=True still applies afade=t=out to the soundtrack."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(specs, "track.mp3", "out.mp4", 8.0, mix_clip_audio=True)
+    fc_idx = cmd.index("-filter_complex")
+    fc = cmd[fc_idx + 1]
+    assert "afade=t=out" in fc
+
+
+def test_mix_clip_audio_still_has_shortest() -> None:
+    """mix_clip_audio=True still includes -shortest."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(specs, "track.mp3", "out.mp4", 8.0, mix_clip_audio=True)
+    assert "-shortest" in cmd
+
+
+def test_mix_clip_audio_custom_volume_in_weights() -> None:
+    """Custom clip_audio_volume appears in the amix weights argument."""
+    specs = _make_specs(2)
+    cmd = build_compile_command(
+        specs, "track.mp3", "out.mp4", 8.0, mix_clip_audio=True, clip_audio_volume=0.7
+    )
+    fc_idx = cmd.index("-filter_complex")
+    fc = cmd[fc_idx + 1]
+    assert "weights=1 0.7000" in fc

@@ -44,6 +44,9 @@ class CompilationService:
     async def create(self, data: CompilationCreate) -> Compilation:
         """Validate inputs, create a pending compilation, and snapshot timeline.
 
+        Stores the mix_clip_audio and clip_audio_volume settings on the
+        compilation record so the rendering process can apply them consistently.
+
         Does NOT start the render — the caller (router) enqueues the background
         task after committing.
         """
@@ -55,6 +58,8 @@ class CompilationService:
             id=uuid.uuid4(),
             soundtrack_id=data.soundtrack_id,
             status=CompilationStatus.pending,
+            mix_clip_audio=data.mix_clip_audio,
+            clip_audio_volume=data.clip_audio_volume,
         )
         await self.repository.add(compilation)
 
@@ -143,12 +148,16 @@ class CompilationService:
                 pct = min(100, int(out_time_us / total_us * 100)) if total_us > 0 else 0
                 _push(compilation_id, ProgressUpdate(progress=pct, status="running"))
 
+            # Pass the stored audio mixing settings from the compilation record.
+            # This ensures the rendering respects the user's choices from creation time.
             await compile_video(
                 clip_specs,
                 soundtrack_path,
                 dst_path,
                 total_duration,
                 on_progress=_on_progress,
+                mix_clip_audio=compilation.mix_clip_audio,
+                clip_audio_volume=compilation.clip_audio_volume,
             )
 
             output_key = build_output_key(compilation.id)

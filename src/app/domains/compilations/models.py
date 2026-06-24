@@ -2,6 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
+import sqlalchemy as sa
 from sqlalchemy import Enum, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +37,14 @@ class CompilationClip(Base):
 
 
 class Compilation(Base):
+    """A video compilation: ordered clips + soundtrack, optionally mixing clip audio.
+
+    Audio mixing behavior is controlled by mix_clip_audio and clip_audio_volume:
+    - mix_clip_audio=False: Uses only the soundtrack for audio (backward compatible).
+    - mix_clip_audio=True: Concatenates clip audio streams and mixes them under the
+      soundtrack at clip_audio_volume intensity.
+    """
+
     __tablename__ = "compilations"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -48,6 +57,12 @@ class Compilation(Base):
     )
     output_key: Mapped[str | None] = mapped_column(default=None)
     duration_s: Mapped[float | None] = mapped_column(default=None)
+    mix_clip_audio: Mapped[bool] = mapped_column(
+        default=False, server_default=sa.false()
+    )
+    clip_audio_volume: Mapped[float] = mapped_column(
+        default=0.4, server_default=sa.text("0.4")
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
