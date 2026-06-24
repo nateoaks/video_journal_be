@@ -14,7 +14,7 @@ class CompilationCreate(BaseModel):
     mix_clip_audio: If True, concatenated clip audio streams are mixed under the
     soundtrack. If False (default), only the soundtrack is used for audio output.
 
-    clip_audio_volume: Weight for clip audio in the mix (0.0–1.0). Only used when
+    clip_audio_volume: Weight for clip audio in the mix (0.0-1.0). Only used when
     mix_clip_audio is True. Larger values make clip audio louder relative to the
     soundtrack. Defaults to 0.4.
     """
