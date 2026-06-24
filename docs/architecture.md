@@ -56,7 +56,7 @@ src/app/
 │   ├── ffprobe.py              ← async ffprobe wrapper for video and audio metadata
 │   ├── ffmpeg.py               ← FFmpeg subprocess wrapper for transcoding
 │   ├── normalize.py            ← video normalisation (H.264/AAC MP4)
-│   ├── compile.py              ← compilation rendering (concat clips + mix audio)
+│   ├── compile.py              ← compilation rendering (concat clips, optionally mix clip audio under soundtrack)
 │   └── filmstrip.py            ← filmstrip sprite generation (extract N frames, tile to JPEG)
 │
 ├── domains/                    ← one self-contained package per feature
@@ -78,7 +78,7 @@ src/app/
 │   │   ├── dependencies.py
 │   │   ├── router.py
 │   │   └── utils.py
-│   ├── compilations/           ← render ordered, trimmed clips into MP4
+│   ├── compilations/           ← render ordered, trimmed clips into MP4 (with optional audio mix)
 │   │   ├── models.py
 │   │   ├── schemas.py
 │   │   ├── repository.py
