@@ -87,14 +87,19 @@ src/app/
 │   │   ├── router.py
 │   │   ├── progress.py
 │   │   └── utils.py
-│   └── soundtracks/            ← audio upload and streaming
-│       ├── models.py
+│   ├── soundtracks/            ← audio upload and streaming
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── repository.py
+│   │   ├── service.py
+│   │   ├── dependencies.py
+│   │   ├── router.py
+│   │   └── utils.py
+│   └── storage/                ← on-demand disk usage reporting
 │       ├── schemas.py
-│       ├── repository.py
 │       ├── service.py
 │       ├── dependencies.py
-│       ├── router.py
-│       └── utils.py
+│       └── router.py
 │
 └── api/
     ├── deps.py                 ← shared FastAPI dependencies (e.g. SessionDep)
