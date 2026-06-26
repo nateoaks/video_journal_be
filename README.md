@@ -1,87 +1,123 @@
-# Video_journal_be
+# Video Journal — Backend
 
-FastAPI backend built with async SQLAlchemy 2.0, PostgreSQL, and Alembic. Managed with uv.
+This is a self-hosted personal video journal: a FastAPI backend paired with a Next.js
+frontend, run together via Docker Compose on a single machine (Docker Desktop on macOS).
+All media (clips, soundtracks, rendered compilations) and the SQLite database live on
+bind-mounted host directories so data persists across container restarts and Mac reboots
+with no extra configuration required.
 
 ## Prerequisites
 
-- [uv](https://docs.astral.sh/uv/)
-- [Docker](https://www.docker.com) (for local Postgres / the full stack)
-- Python 3.14 (uv will install it if missing)
+> **This is the most common first-run failure point.** The frontend is built from a
+> sibling repository. Both repos must be present before running `docker compose`.
 
-## Repository layout
+- **Docker Desktop** installed and running on your Mac.
+- The `video_journal_fe` repository cloned as a **sibling directory** next to this one:
 
-The backend and frontend live in **two sibling repositories**, checked out next to each
-other:
+  ```
+  video_journal/
+  ├── video_journal_be/   <- this repo
+  └── video_journal_fe/   <- must exist here
+  ```
 
-```
-video_journal/
-├── video_journal_be/   ← this repo (FastAPI)
-└── video_journal_fe/   ← Next.js frontend
-```
-
-The root `docker-compose.yml` lives here in the backend repo and builds the frontend via a
-`../video_journal_fe` build context, so both repos must be cloned as siblings for the full
-stack to come up from a clean checkout.
-
-## Full stack with Docker Compose
-
-```bash
-docker compose up -d          # postgres + backend + frontend
-```
-
-- Frontend: http://localhost:3000 (proxies `/api/*` → backend via Next.js rewrites)
-- Backend:  http://localhost:8000 — `GET /api/health` and `GET /health` return `200 OK`
-
-All ports are bound to `127.0.0.1` only. The backend bind-mounts `./data`, `./media`, and
-`./outputs` into the container. FFmpeg and `ffprobe` are installed in the backend image.
+  The `docker-compose.yml` uses `context: ../video_journal_fe` for the frontend build.
+  If that directory is missing, the build fails immediately with a "context not found"
+  error.
 
 ## Setup
 
 ```bash
-uv sync                       # install dependencies into .venv
-cp .env.example .env          # then fill in values
-docker compose up -d postgres # start just Postgres for local dev
-uv run poe makemigration m="initial schema"
-uv run poe migrate            # apply migrations
+docker compose up -d --build
 ```
 
-## Running the app
+That's it. Notes:
+
+- **First build is slow** — FFmpeg is compiled into the backend image. Subsequent builds
+  are fast unless dependencies change.
+- **Migrations run automatically** at backend startup via Alembic. You do not need to run
+  any `alembic` commands manually.
+- **To customise settings** (e.g. `LOG_LEVEL`), edit the `environment:` block in
+  `docker-compose.yml` directly and re-run `docker compose up -d`. The container reads
+  its configuration from that block; a `.env` file on the host is not visible to the
+  running container.
+
+## Access
+
+| What | URL |
+|---|---|
+| Frontend (the app) | http://localhost:3000 |
+| API | http://localhost:8000/api/v1 |
+| API docs (Swagger) | http://localhost:8000/docs |
+| Health check | http://localhost:8000/health |
+
+All ports are bound to `127.0.0.1` — local machine only. There is no authentication
+layer. **Do not expose this stack publicly without adding authentication first.**
+
+## Data and Backups
+
+All persistent state lives in three host directories that are bind-mounted into the
+backend container:
+
+| Directory | Contents |
+|---|---|
+| `./data` | SQLite database (`journal.db`) and its WAL sidecar files (`journal.db-wal`, `journal.db-shm`) |
+| `./media` | Uploaded video clips and soundtracks |
+| `./outputs` | Rendered compilation MP4s |
+
+**Safe backup procedure:**
 
 ```bash
-uv run poe dev                # fastapi dev — http://localhost:8000
+docker compose down
+tar czf journal-backup-$(date +%F).tgz data media outputs
+docker compose up -d
 ```
 
-Interactive API docs: http://localhost:8000/docs
+> **Important:** Copying only `journal.db` without the WAL sidecar files
+> (`journal.db-wal` and `journal.db-shm`) produces an **incomplete and potentially
+> corrupt backup**. Always archive the entire `data/` directory.
 
-## Database migrations
+Backup archives contain personal video and audio content. Store them somewhere secure
+(encrypted volume, private cloud storage, etc.).
+
+## Start on Login (Reboot Persistence)
+
+To have the stack start automatically after a Mac reboot:
+
+1. Open **Docker Desktop -> Settings -> General**.
+2. Enable **"Start Docker Desktop when you sign in."**
+
+Both containers have `restart: unless-stopped` in `docker-compose.yml`, so once Docker
+Desktop is running they start automatically — no manual `docker compose up` needed after
+a reboot.
+
+See `docs/operations.md` for the full reboot and persistence verification runbook.
+
+## Troubleshooting
+
+**Frontend build fails with "context not found"**
+The sibling `video_journal_fe` repo is not cloned. See [Prerequisites](#prerequisites).
+
+**Port 3000 or 8000 already in use**
+Find the conflicting process and stop it:
 
 ```bash
-uv run poe makemigration m="add something"   # autogenerate from model changes
-uv run poe migrate                           # apply pending migrations
-uv run alembic downgrade -1                   # roll back the last migration
-uv run alembic current                        # show the applied revision
+lsof -i :3000
+lsof -i :8000
 ```
 
-## Quality checks
+**Containers not starting after `docker compose up -d`**
+Check container state and logs:
 
 ```bash
-uv run poe check     # ruff format + ruff check + mypy + pytest (run before every PR)
-uv run poe format    # format + autofix lint
-uv run poe lint      # lint only
-uv run poe typecheck # mypy --strict
-uv run poe test      # pytest
+docker compose ps
+docker compose logs backend
+docker compose logs frontend
 ```
 
-## Project structure
+**Reset the stack without data loss**
+`docker compose down` stops and removes containers but does **not** touch bind-mounted
+directories. Your data is safe:
 
+```bash
+docker compose down && docker compose up -d
 ```
-src/app/
-├── core/       — Settings, logging, lifespan, middleware, exception handlers
-├── db/         — SQLAlchemy Base, async engine + session
-├── common/     — Shared base repository and error types
-├── storage/    — StorageBackend abstraction + LocalStorage; inject via StorageDep
-├── domains/    — Feature modules (models, schemas, repository, service, router)
-└── api/        — Aggregated versioned router (/api/v1) + shared deps
-```
-
-See [CLAUDE.md](CLAUDE.md) and the [docs/](docs/) folder for architecture and conventions.
