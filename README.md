@@ -36,13 +36,10 @@ That's it. Notes:
   are fast unless dependencies change.
 - **Migrations run automatically** at backend startup via Alembic. You do not need to run
   any `alembic` commands manually.
-- **`.env` is optional for local dev.** All defaults in `.env.example` work out of the
-  box. If you want to customise settings (e.g. `LOG_LEVEL`, `MAX_UPLOAD_BYTES`), copy
-  the example first:
-
-  ```bash
-  cp .env.example .env
-  ```
+- **To customise settings** (e.g. `LOG_LEVEL`), edit the `environment:` block in
+  `docker-compose.yml` directly and re-run `docker compose up -d`. The container reads
+  its configuration from that block; a `.env` file on the host is not visible to the
+  running container.
 
 ## Access
 
